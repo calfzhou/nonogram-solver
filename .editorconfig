@@ -12,5 +12,11 @@ trim_trailing_whitespace = true
 end_of_line = lf
 insert_final_newline = true
 
-[*.{md,cc,json}]
+[*.py]
+indent_size = 4
+
+[*.{json,yml,yaml,cson}]
+indent_size = 2
+
+[*.md]
 indent_size = 2
