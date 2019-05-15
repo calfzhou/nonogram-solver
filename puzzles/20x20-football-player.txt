@@ -1,4 +1,4 @@
-# row hints
+# row clues
 3
 5
 3 1
@@ -23,7 +23,7 @@
 3
 2 1
 
-# col hints
+# col clues
 2
 1 2
 2 3

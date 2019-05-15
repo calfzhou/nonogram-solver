@@ -10,18 +10,19 @@ class TestCase(unittest.TestCase):
     @ddt.file_data('test-data/line-cases.yaml')
     def test_line_solver(self, **case_info):
         length = case_info['length']
-        hints = case_info['hints']
+        clues = case_info['clues']
         marked = case_info.get('marked', '')
         line = parse_line_content(marked, length)
-        # print(length, hints, line)
+        # print(length, clues, line)
         result = case_info.get('result')
         solver = NonogramSolver()
 
         try:
-            solver.solve_line(hints, line)
+            print(case_info)
+            solver.solve_line(clues, line)
             self.assertIsNotNone(result)
             expected = parse_line_content(result, length)
-            self.assertSequenceEqual(None, expected)
+            self.assertSequenceEqual(line, expected)
         except ParadoxError:
             self.assertIsNone(result)
 
