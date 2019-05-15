@@ -242,12 +242,20 @@ class BlockSection:
             if other_block.end <= self_block.begin:
                 other_index += 1
             else:
-                replacements = [
-                    Block.build(max(self_block.begin, other_block.begin),
+                intersect = Block.build(max(self_block.begin, other_block.begin),
                                 min(self_block.end, other_block.end),
                                 self._min_length)
-                ]
-                self._blocks[self_index:self_index + 1] = filter(None, replacements)
+                tail = Block.build(other_block.end, self_block.end, self._min_length)
+                # replacements = [
+                #     Block.build(max(self_block.begin, other_block.begin),
+                #                 min(self_block.end, other_block.end),
+                #                 self._min_length),
+                #     Block.build(other_block.end, self_block.end, self._min_length),
+                # ]
+                # self._blocks[self_index:self_index + 1] = filter(None, replacements)
+                self._blocks[self_index:self_index + 1] = filter(None, (intersect, tail))
+                if intersect:
+                    self_index += 1
 
         return self
 
@@ -279,6 +287,8 @@ class ClueExtra:
 
     @property
     def candidates(self) -> BlockSection:
+        if self._candidates.length == 0:
+            raise ParadoxError(f'clue {self._index + 1} (value {self._value}) has no box candidates')
         return self._candidates
 
     @property
@@ -361,38 +371,38 @@ class ClueExtra:
             self._push_next()
 
     def _push_prev(self):
-        self._prev.remove_tail_candidates(begin=self._candidates.end - self._value - 1)
+        self._prev.remove_tail_candidates(begin=self.candidates.end - self._value - 1)
 
     def _push_next(self):
-        self._next.remove_head_candidates(end=self._candidates.begin + self._value + 1)
+        self._next.remove_head_candidates(end=self.candidates.begin + self._value + 1)
 
     def remove_head_candidates(self, end: int):
-        if end > self._candidates.begin:
-            self.remove_candidates(Block(self._candidates.begin, end))
+        if end > self.candidates.begin:
+            self.remove_candidates(Block(self.candidates.begin, end))
 
     def remove_tail_candidates(self, begin: int):
-        if self._candidates.end > begin:
-            self.remove_candidates(Block(begin, self._candidates.end))
+        if self.candidates.end > begin:
+            self.remove_candidates(Block(begin, self.candidates.end))
 
     def remove_candidates(self, other):
-        begin = self._candidates.begin
-        end = self._candidates.end
+        begin = self.candidates.begin
+        end = self.candidates.end
         self._candidates -= other
-        if self._candidates.begin > begin or self._candidates.end < end:
+        if self.candidates.begin > begin or self.candidates.end < end:
             self._on_candidates_removed(begin, end)
 
     def limit_candidates(self, other):
-        begin = self._candidates.begin
-        end = self._candidates.end
+        begin = self.candidates.begin
+        end = self.candidates.end
         self._candidates &= other
-        if self._candidates.begin > begin or self._candidates.end < end:
+        if self.candidates.begin > begin or self.candidates.end < end:
             self._on_candidates_removed(begin, end)
 
     def _on_candidates_removed(self, old_begin: int, old_end: int):
-        if self._prev and self._candidates.end < old_end:
+        if self._prev and self.candidates.end < old_end:
             self._push_prev()
 
-        if self._next and self._candidates.begin > old_begin:
+        if self._next and self.candidates.begin > old_begin:
             self._push_next()
 
         self._check_box()
@@ -407,7 +417,7 @@ class ClueExtra:
         if padding >= self._value:
             return
 
-        boxes = Block(self._candidates.begin + padding, self._candidates.end - padding)
+        boxes = Block(self.candidates.begin + padding, self.candidates.end - padding)
         self.confirm_boxes(boxes)
         # if self._boxes is None:
         #     self._boxes = boxes
@@ -522,6 +532,10 @@ class LineSolver:
             raise ParadoxError(f'{self._line} cell {index + 1} cannot be {self._content[index]}')
 
     def _check_finish(self) -> bool:
+        clue_sum = sum(self._clues)
+        if clue_sum + len(self._clues) - 1 > self._width:
+            raise ParadoxError(f'{self._line} clue sum is too big')
+
         box_count = 0
         space_count = 0
         for value in self._content:
@@ -534,7 +548,6 @@ class LineSolver:
         if box_count + space_count == self._width:
             return True
 
-        clue_sum = sum(self._clues)
         if box_count == clue_sum:
             # All boxes finished (or empty line), need fill in spaces.
             value = CellType.SPACE
