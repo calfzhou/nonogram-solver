@@ -21,7 +21,7 @@ class TestCase(unittest.TestCase):
             solver.solve_line(clues, line)
             self.assertIsNotNone(result)
             expected = parse_line_content(result, length)
-            self.assertSequenceEqual(line, expected)
+            self.assertSequenceEqual(format_line(line, 5), format_line(expected, 5))
         except ParadoxError:
             self.assertIsNone(result)
 
