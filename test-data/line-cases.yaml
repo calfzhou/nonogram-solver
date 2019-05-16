@@ -101,7 +101,7 @@ mercury_1:
   direct: 'xx..o|o....'
   result: 'xx..o|o..xx'
 
-undetermined_clues_1:
+uncertain_clues_1:
   length: 20
   clues:
     - 4
@@ -109,7 +109,7 @@ undetermined_clues_1:
   marked: '.....|..xo.|.....|.....'
   result: '.....|..xoo|oox..|.....'
 
-undetermined_clues_2:
+uncertain_clues_2:
   length: 20
   clues:
     - 3
@@ -117,7 +117,7 @@ undetermined_clues_2:
   marked: '.....|..xo.|.....|.....'
   result: '.....|..xoo|o....|.....'
 
-undetermined_clues_3:
+uncertain_clues_3:
   length: 20
   clues:
     - 4
@@ -125,7 +125,7 @@ undetermined_clues_3:
   marked: '.....|.x.o.|.....|.....'
   result: '.....|.x.oo|o....|.....'
 
-undetermined_clues_4:
+uncertain_clues_4:
   length: 20
   clues:
     - 3
@@ -133,7 +133,7 @@ undetermined_clues_4:
   marked: '.....|.x.o.|.....|.....'
   result: '.....|.x.oo|.....|.....'
 
-undetermined_clues_5:
+uncertain_clues_5:
   length: 20
   clues:
     - 4
@@ -141,10 +141,18 @@ undetermined_clues_5:
   marked: '.....|.x.o.|.x...|.....'
   result: '.....|.xooo|ox...|.....'
 
-undetermined_clues_6:
+uncertain_clues_6:
   length: 20
   clues:
     - 4
     - 4
   marked: '.....|.x..o|...x.|.....'
   result: '.....|.x..o|o..x.|.....'
+
+uncertain_clues_7:
+  length: 20
+  clues:
+    - 4
+    - 4
+  marked: '.....|..x.o|..x..|.....'
+  result: '.....|..xoo|oox..|.....'
