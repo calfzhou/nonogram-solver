@@ -18,7 +18,6 @@ class TestCase(unittest.TestCase):
         solver = NonogramSolver()
 
         try:
-            print(case_info)
             solver.solve_line(clues, line)
             self.assertIsNotNone(result)
             expected = parse_line_content(result, length)

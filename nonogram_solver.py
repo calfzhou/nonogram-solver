@@ -97,12 +97,15 @@ class Block(typing.NamedTuple):
     def length(self) -> int:
         return self.end - self.begin
 
-    # def iter(self):
-    #     return range(self.begin, self.end)
+    def iter(self):
+        return range(self.begin, self.end)
 
-    def __iter__(self):
-        for i in range(self.begin, self.end):
-            yield i
+    # def __iter__(self):
+    #     for i in range(self.begin, self.end):
+    #         yield i
+
+    def __repr__(self):
+        return f'[{self.begin + 1},{self.end}]'
 
     @classmethod
     def build(cls, begin: int, end: int=None, min_length=1):
@@ -170,14 +173,26 @@ class BlockSection:
     def cell_count(self) -> int:
         return sum(b.length for b in self._blocks)
 
-    def __iter__(self):
+    def iter(self):
         for block in self._blocks:
-            for i in block:
+            for i in block.iter():
                 yield i
+
+    # def __iter__(self):
+    #     for block in self._blocks:
+    #         for i in block:
+    #             yield i
 
     @property
     def continuous(self) -> bool:
         return len(self._blocks) == 1
+
+    def __repr__(self):
+        if self._blocks:
+            blocks = ', '.join(str(b) for b in self._blocks)
+            return f'<{blocks}>'
+        else:
+            return '<N/A>'
 
     @classmethod
     def _norm_other(cls, other):
@@ -188,7 +203,7 @@ class BlockSection:
         else:
             return cls(other)
 
-    def __in__(self, other):
+    def __contains__(self, other):
         other = self._norm_other(other)
         if not self._blocks or not other._blocks or other.end <= self.begin or self.end <= other.begin:
             return False
@@ -297,6 +312,9 @@ class ClueExtra:
 
     def finished(self) -> bool:
         return self._boxes and self._boxes.length == self._value
+
+    def __repr__(self):
+        return f'#{self._index + 1} ({self._value}) {self._candidates} {self._boxes}'
 
     @classmethod
     def chain(cls, clues: typing.Iterable):
@@ -498,16 +516,16 @@ class LineSolver:
 
         # Check if all clues finished (remaining spaces).
         if self._remain_clue.length == 0:
-            for i in self._remain_cell:
+            for i in self._remain_cell.iter():
                 self._mark_cell(i, CellType.SPACE)
             return
 
         # Build clues' block section.
-        self._clues_ex = [ClueExtra(j, self._clues[j], begin, end) for j in self._remain_clue]
+        self._clues_ex = [ClueExtra(j, self._clues[j], begin, end) for j in self._remain_clue.iter()]
         ClueExtra.chain(self._clues_ex)
 
         # Process known spaces.
-        for i in self._remain_cell:
+        for i in self._remain_cell.iter():
             if self._content[i] == CellType.SPACE:
                 for clue in self._clues_ex:
                     clue.remove_candidates(i)
@@ -588,7 +606,13 @@ class LineSolver:
         if index < self._remain_cell.begin or index >= self._remain_cell.end:
             return True
 
-        return not any(index in clue.candidates for clue in self._clues_ex)
+        value = self._content[index]
+        if value == CellType.SPACE:
+            return True
+        elif value == CellType.BOX:
+            return False
+        else:
+            return not any(index in clue.candidates for clue in self._clues_ex)
 
     def _set_space(self, index: int):
         if index < self._remain_cell.begin or index >= self._remain_cell.end:
@@ -598,23 +622,23 @@ class LineSolver:
         for clue in self._clues_ex:
             clue.remove_candidates(index)
 
-    def _find_matching_clues(self, block: Block):
-        fixed_at_begin = self._is_space(block.begin - 1)
-        fixed_at_end = self._is_space(block.end)
+    # def _find_matching_clues(self, block: Block):
+    #     fixed_at_begin = self._is_space(block.begin - 1)
+    #     fixed_at_end = self._is_space(block.end)
 
-        clues = []
-        for clue in self._clues_ex:
-            dominate = clue.check_dominate(block, fixed_at_begin and fixed_at_end)
-            if dominate:
-                clue.confirm_boxes(block)
-                return None
-            elif dominate is False:
-                clues.append(clue)
+    #     clues = []
+    #     for clue in self._clues_ex:
+    #         dominate = clue.check_dominate(block, fixed_at_begin and fixed_at_end)
+    #         if dominate:
+    #             clue.confirm_boxes(block)
+    #             return None
+    #         elif dominate is False:
+    #             clues.append(clue)
 
-        if fixed_at_begin or fixed_at_end:
-            pass
+    #     if fixed_at_begin or fixed_at_end:
+    #         pass
 
-        return clues
+    #     return clues
 
     def _get_known_boxes(self):
         known_boxes = []
@@ -754,7 +778,7 @@ class LineSolver:
     def _mark_boxes(self):
         for clue in self._clues_ex:
             if clue.boxes:
-                for i in clue.boxes:
+                for i in clue.boxes.iter():
                     self._mark_cell(i, CellType.BOX)
 
     def _mark_spaces(self):
@@ -762,7 +786,7 @@ class LineSolver:
         for clue in self._clues_ex:
             remain -= clue.candidates
 
-        for i in remain:
+        for i in remain.iter():
             self._mark_cell(i, CellType.SPACE)
 
     # def _clue_block_begin_changed(self, clue_index):

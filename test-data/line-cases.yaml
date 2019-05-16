@@ -1,3 +1,15 @@
+full:
+  length: 10
+  clues:
+    - 10
+  result: 'ooooo|ooooo'
+
+empty:
+  length: 10
+  clues:
+    - 0
+  result: 'xxxxx|xxxxx'
+
 fulfill_10:
   length: 10
   clues:
