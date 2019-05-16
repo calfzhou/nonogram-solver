@@ -100,10 +100,6 @@ class Block(typing.NamedTuple):
     def iter(self):
         return range(self.begin, self.end)
 
-    # def __iter__(self):
-    #     for i in range(self.begin, self.end):
-    #         yield i
-
     def __repr__(self):
         return f'[{self.begin + 1},{self.end}]'
 
@@ -111,27 +107,6 @@ class Block(typing.NamedTuple):
     def build(cls, begin: int, end: int=None, min_length=1):
         end = (begin + 1) if (end is None) else end
         return cls(begin, end) if (end - begin >= min_length) else None
-
-
-# class Block:
-#     def __init__(self, begin: int, end: int=None):
-#         if end is None:
-#             end = begin + 1
-
-#         self.begin = begin
-#         self.end = end
-
-#     @property
-#     def length(self) -> int:
-#         return self.end - self.begin
-
-#     def iter(self):
-#         return range(self.begin, self.end)
-
-#     @classmethod
-#     def build(cls, begin: int, end: int=None, min_length=1):
-#         end = (begin + 1) if (end is None) else end
-#         return cls(begin, end) if (end - begin >= min_length) else None
 
 
 class BlockSection:
@@ -177,11 +152,6 @@ class BlockSection:
         for block in self._blocks:
             for i in block.iter():
                 yield i
-
-    # def __iter__(self):
-    #     for block in self._blocks:
-    #         for i in block:
-    #             yield i
 
     @property
     def continuous(self) -> bool:
@@ -261,19 +231,11 @@ class BlockSection:
                                 min(self_block.end, other_block.end),
                                 self._min_length)
                 tail = Block.build(other_block.end, self_block.end, self._min_length)
-                # replacements = [
-                #     Block.build(max(self_block.begin, other_block.begin),
-                #                 min(self_block.end, other_block.end),
-                #                 self._min_length),
-                #     Block.build(other_block.end, self_block.end, self._min_length),
-                # ]
-                # self._blocks[self_index:self_index + 1] = filter(None, replacements)
                 self._blocks[self_index:self_index + 1] = filter(None, (intersect, tail))
                 if intersect:
                     self_index += 1
 
         return self
-
 
     def __and__(self, other):
         result = copy.deepcopy(self)
@@ -437,25 +399,6 @@ class ClueExtra:
 
         boxes = Block(self.candidates.begin + padding, self.candidates.end - padding)
         self.confirm_boxes(boxes)
-        # if self._boxes is None:
-        #     self._boxes = boxes
-        # elif self._boxes.begin != boxes.begin or self._boxes.end != boxes.end:
-        #     self._boxes = Block(
-        #         min(self._boxes.begin, boxes.begin),
-        #         max(self._boxes.end, boxes.end)
-        #     )
-        #     self._on_boxes_extended()
-
-
-# class CellCandidate:
-#     def __init__(self, clue_count: int):
-#         self.space = False
-#         self.clues = bitarray(clue_count)
-#         self.clues.setall(False)
-
-#     @property
-#     def box(self) -> bool:
-#         return not self.space
 
 
 class ClueInfo:
@@ -485,14 +428,7 @@ class LineSolver:
         self._remain_clue = Block(0, len(self._clues))
         self._clues_ex = None
 
-        # self._cell_candidates = [None] * self._width
-        # self._clue_blocks = [None] * len(self._clues)
-
         self._changes = set()
-
-    # @property
-    # def finished_count(self) -> int:
-    #     return self._box_count + self._space_count
 
     @property
     def changes(self) -> typing.Set[int]:
@@ -622,24 +558,6 @@ class LineSolver:
         for clue in self._clues_ex:
             clue.remove_candidates(index)
 
-    # def _find_matching_clues(self, block: Block):
-    #     fixed_at_begin = self._is_space(block.begin - 1)
-    #     fixed_at_end = self._is_space(block.end)
-
-    #     clues = []
-    #     for clue in self._clues_ex:
-    #         dominate = clue.check_dominate(block, fixed_at_begin and fixed_at_end)
-    #         if dominate:
-    #             clue.confirm_boxes(block)
-    #             return None
-    #         elif dominate is False:
-    #             clues.append(clue)
-
-    #     if fixed_at_begin or fixed_at_end:
-    #         pass
-
-    #     return clues
-
     def _get_known_boxes(self):
         known_boxes = []
         index = self._remain_cell.begin
@@ -693,12 +611,6 @@ class LineSolver:
 
             if not clues:
                 raise ParadoxError(f'{self._line} boxes {block} cannot be matched to any clue')
-
-            # if len(clues) == 1:
-            #     clues[0].confirm_boxes(block)
-            #     updated = True
-                # del known_boxes[index]
-                # continue
 
             if (fixed_at_begin or fixed_at_end) and not fixed:
                 clue_min = min(clue.value for clue in clues)
@@ -788,25 +700,6 @@ class LineSolver:
 
         for i in remain.iter():
             self._mark_cell(i, CellType.SPACE)
-
-    # def _clue_block_begin_changed(self, clue_index):
-    #     value = self._clues[clue_index]
-    #     block = self._clue_blocks[clue_index]
-
-    #     next_clue = clue_index + 1
-    #     next_begin = block.begin + value + 1
-    #     if next_clue < self._remain_clue.end and self._clue_blocks[next_clue].begin < next_begin:
-    #         # TODO: Update cell candidates.
-    #         self._clue_blocks[next_clue].begin = next_begin
-    #         self._clue_block_begin_changed(next_clue)
-
-    #     padding = block.length - value
-    #     if padding < value:
-    #         # TODO: Confirm clue's boxes.
-    #         pass
-
-    # def _clue_block_end_changed(self, clue_index):
-    #     pass
 
 
 class NonogramSolver:
