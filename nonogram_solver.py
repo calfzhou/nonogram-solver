@@ -165,11 +165,8 @@ class BlockSection:
         return len(self._blocks) == 1
 
     def __repr__(self):
-        if self._blocks:
-            blocks = ', '.join(str(b) for b in self._blocks)
-            return f'<{blocks}>'
-        else:
-            return '<N/A>'
+        blocks = ', '.join(str(b) for b in self._blocks)
+        return f'<{blocks}>'
 
     @classmethod
     def _norm_other(cls, other):
@@ -289,7 +286,7 @@ class ClueExtra:
         return self._boxes and self._boxes.length == self._value
 
     def __repr__(self):
-        return f'#{self._index + 1} ({self._value}) {self._candidates} {self._boxes}'
+        return f'clue #{self._index + 1} ({self._value}) {self._boxes}'
 
     @classmethod
     def chain(cls, clues: typing.Iterable):
@@ -415,17 +412,6 @@ class ClueExtra:
         self.confirm_boxes(boxes)
 
 
-class ClueInfo:
-    def __init__(self, value: int, begin: int, end: int):
-        self.value = value
-        self.begin = begin
-        self.end = end
-
-    @property
-    def length(self) -> int:
-        return self.end - self.begin
-
-
 class BoxBlockAndClues(typing.NamedTuple):
     block: Block
     clues: typing.List[ClueExtra]
@@ -463,7 +449,7 @@ class LineSolver:
         self._remain_cell = Block(begin, end)
         self._remain_clue = Block(clue_begin, clue_end)
 
-        # Check if all clues finished (remaining spaces).
+        # Check if all clues finished (remaining spaces only).
         if self._remain_clue.length == 0:
             for i in self._remain_cell.iter():
                 self._mark_cell(i, CellType.SPACE)
@@ -501,7 +487,7 @@ class LineSolver:
     def _check_finish(self) -> bool:
         clue_sum = sum(self._clues)
         if clue_sum + len(self._clues) - 1 > self._width:
-            raise ParadoxError(f'clue sum is too big')
+            raise ParadoxError('clue sum is too big')
 
         box_count = 0
         space_count = 0
@@ -604,11 +590,7 @@ class LineSolver:
         if block2.end - block1.begin > clue_value:
             return False
 
-        for i in range(block1.end, block2.begin):
-            if self._is_space(i):
-                return False
-
-        return True
+        return not any(self._is_space(i) for i in range(block1.end, block2.begin))
 
     def _handle_known_boxes(self, known_boxes) -> bool:
         updated = False
@@ -618,10 +600,6 @@ class LineSolver:
             candidate_clues = list(clues)
             clues.clear()
             boundary = self._find_boundary(block)
-
-            # fixed_at_begin = self._is_space(block.begin - 1)
-            # fixed_at_end = self._is_space(block.end)
-            # fixed = fixed_at_begin and fixed_at_end
 
             for clue in candidate_clues:
                 can_contain = clue.can_contain_box(block, boundary)
