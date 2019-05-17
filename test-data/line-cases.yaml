@@ -93,6 +93,15 @@ joining_splitting_1:
   direct: '..ooo|oo..o|oxoo.'
   result: 'xxooo|ooxxo|oxoox'
 
+uncertain_splitting_1:
+  length: 30
+  clues:
+    - 4
+    - 4
+    - 1
+  marked: '..........|..o..oo...|..........'
+  result: 'xxxxxxxxx.|ooo..ooo..|..........'
+
 mercury_1:
   length: 10
   clues:
