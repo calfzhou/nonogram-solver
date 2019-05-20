@@ -15,17 +15,24 @@ class CellType(enum.Enum):
     BOX = enum.auto()
     SPACE = enum.auto()
 
-    def __repr__(self):
-        if self == self.BOX:
-            return 'BOX'
-        elif self == self.SPACE:
-            return 'SPACE'
+    def __str__(self):
+        return self.name
 
 
 class LineKind(enum.Enum):
     ROW = enum.auto()
     COL = enum.auto()
 
+    def orthogonal(self) -> 'LineKind':
+        if self is self.ROW:
+            return self.COL
+        elif self is self.COL:
+            return self.ROW
+        else:
+            raise ValueError(f'{self} has no orthogonal line')
+
+    def __str__(self):
+        return self.name
 
 class Coord(typing.NamedTuple):
     row: int
@@ -35,6 +42,15 @@ class Coord(typing.NamedTuple):
 class Line(typing.NamedTuple):
     kind: LineKind
     n: int
+
+    def get_coord(self, index: int) -> Coord:
+        if self.kind == LineKind.ROW:
+            return Coord(self.n, index)
+        elif self.kind == LineKind.COL:
+            return Coord(index, self.n)
+
+    def __str__(self):
+        return f'{self.kind} {self.n + 1}'
 
 
 class Board:
@@ -69,6 +85,10 @@ class Board:
     def finished(self) -> bool:
         return self._confirmed == self._height * self._width
 
+    def get_line_content(self, line: Line) -> typing.Tuple[CellType]:
+        length = self._width if (line.kind == LineKind.ROW) else self._height
+        return [self[line.get_coord(i)] for i in range(length)]
+
     def __str__(self):
         return format_board(self)
 
@@ -85,6 +105,12 @@ class NonogramPuzzle(typing.NamedTuple):
     @property
     def width(self) -> int:
         return len(self.col_clues)
+
+    def get_line_clues(self, line: Line) -> typing.Tuple[int]:
+        if line.kind == LineKind.ROW:
+            return self.row_clues[line.n]
+        elif line.kind == LineKind.COL:
+            return self.col_clues[line.n]
 
 
 class GuessData(typing.NamedTuple):
@@ -747,7 +773,24 @@ class NonogramSolver:
             try:
                 while lines:
                     line = lines.pop()
-                    # process this line
+                    clues = puzzle.get_line_clues(line)
+                    content = board.get_line_content(line)
+                    origin = format_line(content, 5)
+                    changes = self.solve_line(clues, content, line)
+                    if changes:
+                        print(f'solving {line}: {clues}')
+                        print(f'origin: {origin}')
+                        print(f'result: {format_line(content, 5)}')
+                        print()
+                        orthogonal = line.kind.orthogonal()
+                        for i in changes:
+                            value = content[i]
+                            assert value is not None, f'{line} cell {i + 1} set to None is meaningless'
+                            coord = line.get_coord(i)
+                            assert board[coord] is None, f'{line} cell {i + 1} is already confirmed'
+                            if board[coord] is None and value is not None:
+                                board[coord] = value
+                                lines.add(Line(orthogonal, i))
             except ParadoxError:
                 if guesses:
                     guess: GuessData = guesses.pop()
@@ -903,6 +946,9 @@ def main():
         print(puzzle.row_clues)
         print(puzzle.col_clues)
         print(puzzle.board)
+        board = solver.solve(puzzle)
+        print(board)
+        print('Finished' if board.finished() else 'NOT Finished')
     elif args.mode == 'line':
         content = parse_line_content(args.content, args.length)
         solver.solve_line(args.clues, content)
