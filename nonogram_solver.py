@@ -665,7 +665,7 @@ class LineSolver:
             if not next_clues:
                 raise ParadoxError(f'boxes {next_block} cannot be matched to any clue')
 
-        for index in range(len(known_boxes) - 1, 1, -1):
+        for index in range(len(known_boxes) - 1, 0, -1):
             block, clues = known_boxes[index]
             prev_block, prev_clues = known_boxes[index - 1]
             while prev_clues and prev_clues[-1].index > clues[-1].index:

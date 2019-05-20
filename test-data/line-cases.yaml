@@ -72,6 +72,12 @@ uncertain_splitting_1:
   marked: '..........|..o..oo...|..........'
   result: 'xxxxxxxxx.|ooo..ooo..|..........'
 
+uncertain_splitting_2:
+  length: 30
+  clues: [3, 3, 3]
+  marked: '..........|..........|.o..o....x'
+  result: '..........|..........|oo..oo.xxx'
+
 mercury_1:
   length: 10
   clues: [4]
@@ -120,6 +126,12 @@ uncertain_clues_7:
   clues: [4, 4]
   marked: '.....|..x.o|..x..|.....'
   result: '.....|..xoo|oox..|.....'
+
+uncertain_clues_8:
+  length: 30
+  clues: [2, 2, 2, 1]
+  marked: '..........|.......oxo|..........'
+  result: '..........|.....xooxo|..........'
 
 special_space_1:
   length: 10
