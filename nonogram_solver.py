@@ -687,8 +687,19 @@ class LineSolver:
                 clues[0].confirm_boxes(block)
                 del known_boxes[index]
                 updated = True
-            else:
-                index += 1
+                continue
+
+            # Special space.
+            if block.begin == clues[-1].candidates.begin and block.length < clues[-1].value:
+                if all(block.length == c.value for c in clues[:-1]) and not self._is_space(block.begin - 1):
+                    self._set_space(block.begin - 1)
+                    updated = True
+            elif block.end == clues[0].candidates.end and block.length < clues[0].value:
+                if all(block.length == c.value for c in clues[1:]) and not self._is_space(block.end):
+                    self._set_space(block.end)
+                    updated = True
+
+            index += 1
 
         return updated
 

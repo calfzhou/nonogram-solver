@@ -1,167 +1,146 @@
 full:
   length: 10
-  clues:
-    - 10
+  clues: [10]
   result: 'ooooo|ooooo'
 
 empty:
   length: 10
-  clues:
-    - 0
+  clues: [0]
   result: 'xxxxx|xxxxx'
 
 fulfill_10:
   length: 10
-  clues:
-    - 3
-    - 6
+  clues: [3, 6]
   result: 'oooxo|ooooo'
 
 fulfill_15:
   length: 15
-  clues:
-    - 8
-    - 2
-    - 3
+  clues: [8, 2, 3]
   result: 'ooooo|oooxo|oxooo'
 
 fulfill_20:
   length: 20
-  clues:
-    - 1
-    - 1
-    - 4
-    - 2
-    - 2
-    - 2
-    - 2
+  clues: [1, 1, 4, 2, 2, 2, 2]
   result: 'oxoxo|oooxo|oxoox|ooxoo'
 
 simple_boxes_1:
   length: 10
-  clues:
-    - 8
+  clues: [8]
   result: '..ooo|ooo..'
 
 simple_boxes_2:
   length: 10
-  clues:
-    - 4
-    - 3
+  clues: [4, 3]
   result: '..oo.|..o..'
 
 simple_spaces_1:
   length: 10
-  clues:
-    - 3
-    - 1
+  clues: [3, 1]
   marked: '...o.|...o.'
   result: 'x..o.|.xxox'
 
 forcing_1:
   length: 10
-  clues:
-    - 3
-    - 2
+  clues: [3, 2]
   marked: '....x|.x...'
   result: '.oo.x|xx.o.'
 
 glue_1:
   length: 10
-  clues:
-    - 5
+  clues: [5]
   marked: '..o..|.....'
   direct: '..ooo|.....'
   result: '..ooo|..xxx'
 
 glue_2:
   length: 10
-  clues:
-    - 1
-    - 3
+  clues: [1, 3]
   marked: 'o.x.o|.....'
   direct: 'o.x.o|o....'
   result: 'oxx.o|o.xxx'
 
 joining_splitting_1:
   length: 15
-  clues:
-    - 5
-    - 2
-    - 2
+  clues: [5, 2, 2]
   marked: '..oo.|oo...|o.o..'
   direct: '..ooo|oo..o|oxoo.'
   result: 'xxooo|ooxxo|oxoox'
 
 uncertain_splitting_1:
   length: 30
-  clues:
-    - 4
-    - 4
-    - 1
+  clues: [4, 4, 1]
   marked: '..........|..o..oo...|..........'
   result: 'xxxxxxxxx.|ooo..ooo..|..........'
 
 mercury_1:
   length: 10
-  clues:
-    - 4
+  clues: [4]
   marked: '....o|o....'
   direct: 'xx..o|o....'
   result: 'xx..o|o..xx'
 
 uncertain_clues_1:
   length: 20
-  clues:
-    - 4
-    - 4
+  clues: [4, 4]
   marked: '.....|..xo.|.....|.....'
   result: '.....|..xoo|oox..|.....'
 
 uncertain_clues_2:
   length: 20
-  clues:
-    - 3
-    - 4
+  clues: [3, 4]
   marked: '.....|..xo.|.....|.....'
   result: '.....|..xoo|o....|.....'
 
 uncertain_clues_3:
   length: 20
-  clues:
-    - 4
-    - 4
+  clues: [4, 4]
   marked: '.....|.x.o.|.....|.....'
   result: '.....|.x.oo|o....|.....'
 
 uncertain_clues_4:
   length: 20
-  clues:
-    - 3
-    - 4
+  clues: [3, 4]
   marked: '.....|.x.o.|.....|.....'
   result: '.....|.x.oo|.....|.....'
 
 uncertain_clues_5:
   length: 20
-  clues:
-    - 4
-    - 4
+  clues: [4, 4]
   marked: '.....|.x.o.|.x...|.....'
   result: '.....|.xooo|ox...|.....'
 
 uncertain_clues_6:
   length: 20
-  clues:
-    - 4
-    - 4
+  clues: [4, 4]
   marked: '.....|.x..o|...x.|.....'
   result: '.....|.x..o|o..x.|.....'
 
 uncertain_clues_7:
   length: 20
-  clues:
-    - 4
-    - 4
+  clues: [4, 4]
   marked: '.....|..x.o|..x..|.....'
   result: '.....|..xoo|oox..|.....'
+
+special_space_1:
+  length: 10
+  clues: [1, 2]
+  marked: '..o..|.....'
+  result: '.xo..|.....'
+
+special_space_2:
+  length: 10
+  clues: [2, 1]
+  marked: '.....|..o..'
+  result: '.....|..ox.'
+
+special_space_3:
+  length: 10
+  clues: [2, 4]
+  marked: '...oo|.....'
+  result: '..xoo|.o...'
+
+special_spaces_4:
+  length: 10
+  clues: [1, 1, 2]
+  marked: '....o.....'
+  result: '...xo.....'
