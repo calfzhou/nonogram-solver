@@ -13,17 +13,17 @@ class TestCase(unittest.TestCase):
         clues = case_info['clues']
         marked = case_info.get('marked', '')
         line = parse_line_content(marked, length)
-        # print(length, clues, line)
         result = case_info.get('result')
         solver = NonogramSolver()
 
         try:
             solver.solve_line(clues, line)
+        except ParadoxError:
+            self.assertIsNone(result)
+        else:
             self.assertIsNotNone(result)
             expected = parse_line_content(result, length)
             self.assertSequenceEqual(format_line(line, 5), format_line(expected, 5))
-        except ParadoxError:
-            self.assertIsNone(result)
 
 
 if __name__ == '__main__':

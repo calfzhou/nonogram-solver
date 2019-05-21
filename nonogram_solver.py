@@ -711,6 +711,7 @@ class LineSolver:
             if not prev_clues:
                 raise ParadoxError(f'boxes {prev_block} cannot be matched to any clue')
 
+        # Check confirmed boxes and special space.
         index = 0
         while index < len(known_boxes):
             block, clues = known_boxes[index]
@@ -731,6 +732,26 @@ class LineSolver:
                     updated = True
 
             index += 1
+
+        # Check force spacing.
+        for index in range(len(known_boxes) - 1):
+            block, clues = known_boxes[index]
+            next_block, next_clues = known_boxes[index + 1]
+            if block.end == next_block.begin - 1 and not self._is_space(block.end):
+                separate = False
+                if clues[-1].index < next_clues[0].index:
+                    separate = True
+                else:
+                    shared_clues = set()
+                    shared_clues.update(c.index for c in clues)
+                    shared_clues.intersection_update(c.index for c in next_clues)
+                    merged = Block(block.begin, next_block.end)
+                    can_merge = lambda c: merged.length <= c.value and merged in c.candidates
+                    separate = not any(can_merge(self._clues_ex[i]) for i in shared_clues)
+
+                if separate:
+                    self._set_space(block.end)
+                    updated = True
 
         return updated
 
@@ -797,7 +818,7 @@ class NonogramSolver:
                                 board[coord] = value
                                 lines[Line(orthogonal, i)] = None
             except ParadoxError:
-                print(format_board(board, 5, 0))
+                print(format_board(board, 5, 5))
                 if guesses:
                     guess: GuessData = guesses.pop()
                     board[guess.coord] = CellType.SPACE
