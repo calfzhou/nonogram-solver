@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import collections
 import copy
 import enum
 import itertools
@@ -119,6 +120,10 @@ class GuessData(typing.NamedTuple):
 
 
 class ParadoxError(Exception):
+    pass
+
+
+class FailedError(Exception):
     pass
 
 
@@ -751,9 +756,9 @@ class NonogramSolver:
     def solve(self, puzzle: NonogramPuzzle) -> Board:
         board = puzzle.board or Board(puzzle.height, puzzle.width)
 
-        lines: typing.Set[Line] = set()
-        lines.update(Line(LineKind.ROW, i) for i in range(board.height))
-        lines.update(Line(LineKind.COL, i) for i in range(board.width))
+        lines = collections.OrderedDict()
+        lines.update((Line(LineKind.ROW, i), None) for i in range(board.height))
+        lines.update((Line(LineKind.COL, i), None) for i in range(board.width))
 
         guesses: typing.List[GuessData] = []
 
@@ -767,12 +772,12 @@ class NonogramSolver:
                 board[coord] = CellType.BOX
                 # TODO: copy.deepcopy(board)
                 guesses.append(GuessData(coord, board))
-                lines.add(Line(LineKind.ROW, coord.row))
-                lines.add(Line(LineKind.COL, coord.col))
+                lines[Line(LineKind.ROW, coord.row)] = None
+                lines[Line(LineKind.COL, coord.col)] = None
 
             try:
                 while lines:
-                    line = lines.pop()
+                    line, _ = lines.popitem(last=False)
                     clues = puzzle.get_line_clues(line)
                     content = board.get_line_content(line)
                     origin = format_line(content, 5)
@@ -783,20 +788,21 @@ class NonogramSolver:
                         print(f'result: {format_line(content, 5)}')
                         print()
                         orthogonal = line.kind.orthogonal()
-                        for i in changes:
+                        for i in sorted(changes):
                             value = content[i]
                             assert value is not None, f'{line} cell {i + 1} set to None is meaningless'
                             coord = line.get_coord(i)
                             assert board[coord] is None, f'{line} cell {i + 1} is already confirmed'
                             if board[coord] is None and value is not None:
                                 board[coord] = value
-                                lines.add(Line(orthogonal, i))
+                                lines[Line(orthogonal, i)] = None
             except ParadoxError:
+                print(format_board(board, 5, 0))
                 if guesses:
                     guess: GuessData = guesses.pop()
                     board[guess.coord] = CellType.SPACE
-                    lines.add(Line(LineKind.ROW, coord.row))
-                    lines.add(Line(LineKind.COL, coord.col))
+                    lines[Line(LineKind.ROW, coord.row)] = None
+                    lines[Line(LineKind.COL, coord.col)] = None
                 else:
                     raise
 
@@ -813,6 +819,53 @@ class NonogramSolver:
                 raise
 
         return line_solver.changes
+
+    def pre_check(self, puzzle: NonogramPuzzle):
+        row_clue_sum = self._check_line_clue_sum(puzzle.row_clues, len(puzzle.col_clues), LineKind.ROW)
+        col_clue_sum = self._check_line_clue_sum(puzzle.col_clues, len(puzzle.row_clues), LineKind.COL)
+        if row_clue_sum != col_clue_sum:
+            raise FailedError(f'total row clues sum ({row_clue_sum}) not equal to col clues sum ({col_clue_sum})')
+
+    def _check_line_clue_sum(self, all_clues, length, line_kind):
+        total = 0
+        for i, clues in enumerate(all_clues):
+            s = sum(clues)
+            total += s
+            min_len = s + len(clues) - 1
+            if min_len > length:
+                raise FailedError(f'{Line(line_kind, i)} clues {clues} cannot fit in {length} cells (at least {min_len})')
+
+        return total
+
+    def verify(self, puzzle: NonogramPuzzle, board: Board):
+        row_boxes = [[0] for _ in range(board.height)]
+        col_boxes = [[0] for _ in range(board.width)]
+        # row_boxes = [None] * board.height
+        # col_boxes = [None] * board.width
+        for row in range(board.height):
+            for col in range(board.width):
+                value = board[Coord(row, col)]
+                if value == CellType.BOX:
+                    row_boxes[row][-1] += 1
+                    col_boxes[col][-1] += 1
+                elif value == CellType.SPACE:
+                    if row_boxes[row][-1] > 0:
+                        row_boxes[row].append(0)
+                    if col_boxes[col][-1] > 0:
+                        col_boxes[col].append(0)
+                else:
+                    raise FailedError(f'cell ({row + 1}, {col + 1}) is not marked')
+
+        self._compare_boxes_with_clues(row_boxes, puzzle.row_clues, LineKind.ROW)
+        self._compare_boxes_with_clues(col_boxes, puzzle.col_clues, LineKind.COL)
+
+    def _compare_boxes_with_clues(self, all_boxes, all_clues, line_kind):
+        assert len(all_boxes) == len(all_clues), f'the number of {line_kind}s do not match'
+        for i in range(len(all_boxes)):
+            boxes = tuple(filter(None, all_boxes[i])) or (0,)
+            clues = all_clues[i]
+            if boxes != clues:
+                raise FailedError(f'{Line(line_kind, i)} boxes {boxes} not match with clues {clues}')
 
 
 def format_line(content: typing.List[CellType], col_fence=0) -> str:
@@ -836,7 +889,7 @@ def format_board(board: Board, col_fence=0, row_fence=0) -> str:
 
     fence_line = ''.join(fence_line)
 
-    mapping = { CellType.BOX: '@', CellType.SPACE: '*' }
+    mapping = { CellType.BOX: '䨻', CellType.SPACE: 'ｘ' }
     lines = []
     for row in range(board.height):
         if row > 0 and row_fence > 0 and row % row_fence == 0:
@@ -847,7 +900,7 @@ def format_board(board: Board, col_fence=0, row_fence=0) -> str:
             if col > 0 and col_fence > 0 and col % col_fence == 0:
                 line.append('|')
             value = board[Coord(row, col)]
-            ch = mapping.get(value, '.')
+            ch = mapping.get(value, '、')
             line.append(ch)
 
         lines.append(''.join(line))
@@ -946,9 +999,12 @@ def main():
         print(puzzle.row_clues)
         print(puzzle.col_clues)
         print(puzzle.board)
+        solver.pre_check(puzzle)
         board = solver.solve(puzzle)
-        print(board)
+        print(format_board(board, 0, 0))
         print('Finished' if board.finished() else 'NOT Finished')
+        if board.finished():
+            solver.verify(puzzle, board)
     elif args.mode == 'line':
         content = parse_line_content(args.content, args.length)
         solver.solve_line(args.clues, content)
