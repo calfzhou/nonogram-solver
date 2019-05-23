@@ -90,6 +90,12 @@ uncertain_splitting_4:
   origin: '...o.|.x.oo|.o...|.....|...xo'
   result: '...o.|.xooo|xooox|.....|...xo'
 
+uncertain_splitting_negative_1:
+  length: 30
+  clues: [1, 1, 1, 3, 3, 2, 6]
+  origin: '*@*..|.....|.@...|@.@..|.....|.....'
+  result: '*@*..|.....|.@...|@.@..|.....|.....'
+
 mercury_1:
   length: 10
   clues: [4]

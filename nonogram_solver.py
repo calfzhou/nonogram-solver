@@ -322,7 +322,7 @@ class ClueExtra:
         return self._boxes and self._boxes.length == self._value
 
     def __repr__(self):
-        return f'clue #{self._index + 1} ({self._value}) {self._boxes}'
+        return f'#{self._index + 1} ({self._value}) {self._boxes}'
 
     @classmethod
     def chain(cls, clues: typing.Iterable):
@@ -738,7 +738,7 @@ class LineSolver:
 
             index += 1
 
-        # Check force spacing.
+        # Check force splitting.
         for index in range(len(known_boxes) - 1):
             block, clues = known_boxes[index]
             next_block, next_clues = known_boxes[index + 1]
@@ -747,12 +747,11 @@ class LineSolver:
                 if clues[-1].index < next_clues[0].index:
                     separate = True
                 else:
-                    shared_clues = set()
-                    shared_clues.update(c.index for c in clues)
-                    shared_clues.intersection_update(c.index for c in next_clues)
+                    shared_clues = set(clues)
+                    shared_clues.intersection_update(next_clues)
                     merged = Block(block.begin, next_block.end)
                     can_merge = lambda c: merged.length <= c.value and merged in c.candidates
-                    separate = not any(can_merge(self._clues_ex[i]) for i in shared_clues)
+                    separate = not any(can_merge(c) for c in shared_clues)
 
                 if separate:
                     self._set_space(block.end)
@@ -1165,8 +1164,12 @@ def main():
             print('NOT Solved!!!')
     elif args.mode == 'line':
         content = solver.io.parse_line(args.content, args.length)
+        origin = solver.io.format_line(content)
         solver.solve_line(args.clues, content)
-        print(solver.io.format_line(content))
+        print(f'solving line: {args.clues}')
+        print(f'origin: {origin}')
+        print(f'result: {solver.io.format_line(content)}')
+        print()
 
 
 if __name__ == '__main__':
