@@ -14,8 +14,8 @@ def deducible_grams():
 class TestCase(unittest.TestCase):
     @ddt.data(*deducible_grams())
     def test_deduce_gram(self, gram_file_path):
-        puzzle = load_puzzle(gram_file_path)
         solver = NonogramSolver()
+        puzzle = solver.io.load_puzzle(gram_file_path)
 
         solver.pre_check(puzzle)
         board = solver.solve(puzzle)

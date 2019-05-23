@@ -11,10 +11,12 @@ class TestCase(unittest.TestCase):
     def test_line_solver(self, **case_info):
         length = case_info['length']
         clues = case_info['clues']
-        marked = case_info.get('marked', '')
-        line = parse_line_content(marked, length)
+        origin = case_info.get('origin', '')
         result = case_info.get('result')
+
         solver = NonogramSolver()
+        solver.io.line_fence = 5
+        line = solver.io.parse_line(origin, length)
 
         try:
             solver.solve_line(clues, line)
@@ -22,8 +24,8 @@ class TestCase(unittest.TestCase):
             self.assertIsNone(result)
         else:
             self.assertIsNotNone(result)
-            expected = parse_line_content(result, length)
-            self.assertSequenceEqual(format_line(line, 5), format_line(expected, 5))
+            expected = solver.io.parse_line(result, length)
+            self.assertSequenceEqual(solver.io.format_line(line), solver.io.format_line(expected))
 
 
 if __name__ == '__main__':

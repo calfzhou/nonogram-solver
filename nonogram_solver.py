@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
 import argparse
+import distutils.util
 import collections
 import copy
 import enum
 import itertools
 import math
 import sys
+import time
 import typing
 
 __version__ = '1.0.0'
@@ -38,6 +40,9 @@ class LineKind(enum.Enum):
 class Coord(typing.NamedTuple):
     row: int
     col: int
+
+    def __str__(self):
+        return f'[{self.row + 1}, {self.col + 1}]'
 
 
 class Line(typing.NamedTuple):
@@ -139,7 +144,7 @@ class Block(typing.NamedTuple):
         return range(self.begin, self.end)
 
     def __repr__(self):
-        return f'[{self.begin + 1},{self.end}]'
+        return f'[{self.begin + 1}-{self.end}]'
 
     @classmethod
     def build(cls, begin: int, end: int=None, min_length=1):
@@ -306,7 +311,7 @@ class ClueExtra:
     @property
     def candidates(self) -> BlockSection:
         if self._candidates.length == 0:
-            raise ParadoxError(f'clue {self._index + 1} (value {self._value}) has no box candidates')
+            raise ParadoxError(f'clue #{self._index + 1} (value {self._value}) has no box candidates')
         return self._candidates
 
     @property
@@ -770,9 +775,164 @@ class LineSolver:
             self._mark_cell(i, CellType.SPACE)
 
 
+class NonogramIO:
+    class SymbolColl(typing.NamedTuple):
+        box: str
+        space: str
+        unknown: str
+        col_fence: str
+        row_fence: str
+        cross_fence: str
+
+    def __init__(self):
+        self.line_fence = 0
+        self.row_fence = 0
+        self.col_fence = 0
+        self.full_width_enabled = False
+
+        self.symbols = self.SymbolColl('@', '*', '.', '|', '-', '+')
+        self.full_width_symbols = self.SymbolColl('䨻', 'ｘ', '、', '｜', '－', '＋')
+        self.box_symbols = { 'o', self.symbols.box, self.full_width_symbols.box }
+        self.space_symbols = { 'x', self.symbols.space, self.full_width_symbols.space }
+
+    def format_line(self, content: typing.List[CellType], fence=None) -> str:
+        fence = self.line_fence if fence is None else fence
+        parts = []
+        for col, value in enumerate(content):
+            if self.line_fence > 0 and col > 0 and col % self.line_fence == 0:
+                parts.append(self.symbols.col_fence)
+
+            if value == CellType.BOX:
+                parts.append(self.symbols.box)
+            elif value == CellType.SPACE:
+                parts.append(self.symbols.space)
+            else:
+                parts.append(self.symbols.unknown)
+
+        return ''.join(parts)
+
+    def format_board(self, board: Board, row_fence=None, col_fence=None, full_width=None, highlights=None) -> str:
+        row_fence = self.row_fence if row_fence is None else row_fence
+        col_fence = self.col_fence if col_fence is None else col_fence
+        full_width = self.full_width_enabled if full_width is None else full_width
+        symbols = self.full_width_symbols if full_width else self.symbols
+        highlights = highlights or set()
+
+        csi = '\x1b'
+        c_highlight = csi + '[34m'
+        c_reset = csi + '[0m'
+
+        fence_parts = []
+        for col in range(board.width):
+            if col_fence > 0 and col > 0 and col % col_fence == 0:
+                fence_parts.append(symbols.cross_fence)
+            fence_parts.append(symbols.row_fence)
+
+        fence_line = ''.join(fence_parts)
+
+        lines = []
+        for row in range(board.height):
+            if row_fence > 0 and row > 0 and row % row_fence == 0:
+                lines.append(fence_line)
+
+            parts = []
+            for col in range(board.width):
+                if col_fence > 0 and col > 0 and col % col_fence == 0:
+                    parts.append(symbols.col_fence)
+
+                coord = Coord(row, col)
+                if coord in highlights:
+                    parts.append(c_highlight)
+
+                value = board[coord]
+                if value == CellType.BOX:
+                    parts.append(symbols.box)
+                elif value == CellType.SPACE:
+                    parts.append(symbols.space)
+                else:
+                    parts.append(symbols.unknown)
+
+                if coord in highlights:
+                    parts.append(c_reset)
+
+            lines.append(''.join(parts))
+
+        return '\n'.join(lines)
+
+    def parse_line(self, text: str, length: int) -> typing.List[CellType]:
+        content = []
+        for c in text:
+            c = c.lower()
+            if c in self.box_symbols:
+                content.append(CellType.BOX)
+            elif c in self.space_symbols:
+                content.append(CellType.SPACE)
+            elif c in { self.symbols.col_fence, self.full_width_symbols.col_fence }:
+                continue
+            else:
+                content.append(None)
+
+        if len(content) < length:
+            content.extend(itertools.repeat(None, length - len(content)))
+        elif len(content) > length:
+            raise ValueError(f'line `{text}` is longer than given length {length}')
+
+        return content
+
+    def load_puzzle(self, file_path) -> NonogramPuzzle:
+        row_clues = []
+        col_clues = []
+        board: Board = None
+        with (open(file_path) if file_path else sys.stdin) as f:
+            section = 0
+            row = 0
+            for line in f:
+                line = line.rstrip('\r\n')
+                if line.startswith('#'):
+                    continue
+
+                if section == 0:
+                    if line == '':
+                        section += 1
+                    elif line[0] == self.symbols.row_fence:
+                        continue
+                    else:
+                        row_clues.append(tuple(int(x) for x in line.split()))
+                elif section == 1:
+                    if line == '':
+                        section += 1
+                    elif line[0] == self.symbols.row_fence:
+                        continue
+                    else:
+                        col_clues.append(tuple(int(x) for x in line.split()))
+                elif section == 2:
+                    if line == '':
+                        break
+                    elif line[0] in { self.symbols.row_fence, self.full_width_symbols.row_fence }:
+                        continue
+                    else:
+                        board = board or Board(len(row_clues), len(col_clues))
+                        row_content = self.parse_line(line, board.width)
+                        for col, value in enumerate(row_content):
+                            if value:
+                                board[Coord(row, col)] = value
+
+                        row += 1
+                else:
+                    break
+
+        return NonogramPuzzle(tuple(row_clues), tuple(col_clues), board)
+
+
 class NonogramSolver:
     def __init__(self):
         self.guess_enabled = False
+        self.line_deduce_visible = False
+        self.deduce_board_visible = False
+        self.deduce_board_pause = 0
+        self.guessing_visible = False
+
+        self.io = NonogramIO()
 
     def solve(self, puzzle: NonogramPuzzle) -> Board:
         board = puzzle.board or Board(puzzle.height, puzzle.width)
@@ -782,32 +942,44 @@ class NonogramSolver:
         lines.update((Line(LineKind.COL, i), None) for i in range(board.width))
 
         guesses: typing.List[GuessData] = []
+        guessing = False
 
         while not board.finished():
             if not lines:
                 if not self.guess_enabled:
                     break
 
+                if not guessing:
+                    board = copy.deepcopy(board)
+                    guessing = True
+                    if self.guessing_visible:
+                        print('Deduce finished but not solved the puzzle, try guessing. The deduce result is:')
+                        print(self.io.format_board(board))
+                        print()
+
                 # guess
-                coord = self.choose(board)
+                coord = self._choose_cell(board)
+                guesses.append(GuessData(coord, copy.deepcopy(board)))
                 board[coord] = CellType.BOX
-                # TODO: copy.deepcopy(board)
-                guesses.append(GuessData(coord, board))
                 lines[Line(LineKind.ROW, coord.row)] = None
                 lines[Line(LineKind.COL, coord.col)] = None
+                if self.guessing_visible:
+                    indent = '  ' * (len(guesses) - 1)
+                    print(f'{indent}[Guess {len(guesses)}] assume cell {coord} is BOX')
 
             try:
                 while lines:
                     line, _ = lines.popitem(last=False)
                     clues = puzzle.get_line_clues(line)
                     content = board.get_line_content(line)
-                    origin = format_line(content, 5)
+                    origin = self.io.format_line(content)
                     changes = self.solve_line(clues, content, line)
                     if changes:
-                        print(f'solving {line}: {clues}')
-                        print(f'origin: {origin}')
-                        print(f'result: {format_line(content, 5)}')
-                        print()
+                        if self.line_deduce_visible:
+                            print(f'solving {line}: {clues}')
+                            print(f'origin: {origin}')
+                            print(f'result: {self.io.format_line(content)}')
+                            print()
                         orthogonal = line.kind.orthogonal()
                         for i in sorted(changes):
                             value = content[i]
@@ -817,17 +989,38 @@ class NonogramSolver:
                             if board[coord] is None and value is not None:
                                 board[coord] = value
                                 lines[Line(orthogonal, i)] = None
-            except ParadoxError:
-                print(format_board(board, 5, 5))
+                        if self.deduce_board_visible:
+                            highlights = set(line.get_coord(i) for i in changes)
+                            print(self.io.format_board(board, highlights=highlights))
+                            print()
+                            time.sleep(self.deduce_board_pause)
+            except ParadoxError as e:
                 if guesses:
                     guess: GuessData = guesses.pop()
+                    board = guess.board
                     board[guess.coord] = CellType.SPACE
                     lines[Line(LineKind.ROW, coord.row)] = None
                     lines[Line(LineKind.COL, coord.col)] = None
+                    if self.guessing_visible:
+                        indent = '  ' * (len(guesses) + 1)
+                        print(f'{indent}[Paradox] {e}; so cell {guess.coord} should be SPACE')
                 else:
+                    print(self.io.format_board(board))
                     raise
 
+        if guessing and self.guessing_visible and board.finished():
+            indent = '  ' * len(guesses)
+            print(f'{indent}[Success] find a valid solution')
+            print()
+
         return board
+
+    def _choose_cell(self, board: Board):
+        for row in range(board.height):
+            for col in range(board.width):
+                coord = Coord(row, col)
+                if board[coord] is None:
+                    return coord
 
     def solve_line(self, clues: typing.Tuple[int], content: typing.List[CellType], line: Line=None) -> typing.Set[int]:
         line_solver = LineSolver(clues, content)
@@ -889,100 +1082,9 @@ class NonogramSolver:
                 raise FailedError(f'{Line(line_kind, i)} boxes {boxes} not match with clues {clues}')
 
 
-def format_line(content: typing.List[CellType], col_fence=0) -> str:
-    mapping = { CellType.BOX: '@', CellType.SPACE: '*' }
-    line = []
-    for col, value in enumerate(content):
-        if col > 0 and col_fence > 0 and col % col_fence == 0:
-            line.append('|')
-        ch = mapping.get(value, '.')
-        line.append(ch)
-
-    return ''.join(line)
-
-
-def format_board(board: Board, col_fence=0, row_fence=0) -> str:
-    fence_line = []
-    for col in range(board.width):
-        if col > 0 and col_fence > 0 and col % col_fence == 0:
-                fence_line.append('+')
-        fence_line.append('-')
-
-    fence_line = ''.join(fence_line)
-
-    mapping = { CellType.BOX: '䨻', CellType.SPACE: 'ｘ' }
-    lines = []
-    for row in range(board.height):
-        if row > 0 and row_fence > 0 and row % row_fence == 0:
-            lines.append(fence_line)
-
-        line = []
-        for col in range(board.width):
-            if col > 0 and col_fence > 0 and col % col_fence == 0:
-                line.append('|')
-            value = board[Coord(row, col)]
-            ch = mapping.get(value, '、')
-            line.append(ch)
-
-        lines.append(''.join(line))
-
-    return '\n'.join(lines)
-
-
-def parse_line_clues(text: str) -> typing.Tuple[int]:
-    return tuple(int(x) for x in text.split())
-
-
-def parse_line_content(text: str, n: int) -> typing.List[CellType]:
-    mapping = { 'o': CellType.BOX, '@': CellType.BOX, 'x': CellType.SPACE, '*': CellType.SPACE }
-    line = [mapping.get(c.lower()) for c in text if c != '|']
-    if len(line) < n:
-        line.extend(itertools.repeat(None, n - len(line)))
-    elif len(line) > n:
-        raise ValueError(f'given line content `{text}` is longer than given line length {n}')
-
-    return line
-
-
-def load_puzzle(file_path):
-    row_clues = []
-    col_clues = []
-    board: Board = None
-    with (open(file_path) if file_path else sys.stdin) as f:
-        loading = -2
-        for line in f:
-            line = line.rstrip('\r\n')
-            if line.startswith('#') or '-' in line:
-                continue
-
-            if loading == -2:
-                if line == '':
-                    loading += 1
-                else:
-                    row_clues.append(parse_line_clues(line))
-            elif loading == -1:
-                if line == '':
-                    loading += 1
-                else:
-                    col_clues.append(parse_line_clues(line))
-            elif loading < len(row_clues):
-                if line == '':
-                    break
-                else:
-                    board = board or Board(len(row_clues), len(col_clues))
-                    row_content = parse_line_content(line, len(col_clues))
-                    for col, value in enumerate(row_content):
-                        if value:
-                            board[Coord(loading, col)] = value
-
-                    loading += 1
-            else:
-                break
-
-    return NonogramPuzzle(tuple(row_clues), tuple(col_clues), board)
-
-
 def create_arg_parser() -> argparse.ArgumentParser:
+    strtobool = lambda s: bool(distutils.util.strtobool(s))
+
     parser = argparse.ArgumentParser(description='Nonograms Puzzle Solver', allow_abbrev=False)
     parser.add_argument('--version', action='version', version=f'nonograms_solver {__version__}')
     subparsers = parser.add_subparsers(dest='mode', required=True, help='choose a mode')
@@ -991,6 +1093,29 @@ def create_arg_parser() -> argparse.ArgumentParser:
     parser_g.add_argument('puzzle_file', nargs='?',
                           help='a file contains the nanogram puzzle, see puzzles/*.txt for example'
                           ' (default: read from stdin)')
+    parser_g.add_argument('--guess', type=strtobool,
+                          nargs='?', const=True, default=False, choices=[True, False],
+                          help='whether enable guess when puzzle cannot be solved by deducing (default: false)')
+    parser_g.add_argument('--show-progress', type=strtobool,
+                          nargs='?', const=True, default=False, choices=[True, False],
+                          help='whether print board after each deducing step (highlight changes) (default: false)')
+    parser_g.add_argument('--progress-pause', type=float, default=0.5,
+                          help='pause some time (in seconds) between each progress board view (default: 0.5)')
+    parser_g.add_argument('--trace-deduce', type=strtobool,
+                          nargs='?', const=True, default=False, choices=[True, False],
+                          help='whether print every line deducing result (default: false)')
+    parser_g.add_argument('--trace-guess', type=strtobool,
+                          nargs='?', const=True, default=False, choices=[True, False],
+                          help='whether print every guessing step (default: false)')
+    parser_g.add_argument('--row-fence', type=int, default=0,
+                          help='if greater than 0, print row fence when printing gram (default: 0)')
+    parser_g.add_argument('--col-fence', type=int, default=0,
+                          help='if greater than 0, print column fence when printing gram (default: 0)')
+    parser_g.add_argument('--line-fence', type=int, default=5,
+                          help='if greater than 0, print fence when printing single line (default: 5)')
+    parser_g.add_argument('--full-width', type=strtobool,
+                          nargs='?', const=True, default=True, choices=[True, False],
+                          help='whether use full width char when print gram (default: true)')
 
     parser_l = subparsers.add_parser('line', help='single line mode')
     parser_l.add_argument('length', type=int,
@@ -1000,36 +1125,48 @@ def create_arg_parser() -> argparse.ArgumentParser:
     parser_l.add_argument('--content', default='',
                          help='content of the line, `o` or `@` for box, `x` or `*` for space,'
                          ' `|` for border (optional), other character for unknown (case insensitive)')
+    parser_l.add_argument('--line-fence', type=int, default=5,
+                          help='if greater than 0, print fence when printing single line (default: 5)')
 
     return parser
 
 
 def create_solver(args) -> NonogramSolver:
     solver = NonogramSolver()
+    solver.io.line_fence = args.line_fence
+    if args.mode == 'gram':
+        solver.guess_enabled = args.guess
+        solver.deduce_board_visible = args.show_progress
+        solver.deduce_board_pause = args.progress_pause
+        solver.line_deduce_visible = args.trace_deduce
+        solver.guessing_visible = args.trace_guess
+        solver.io.row_fence = args.row_fence
+        solver.io.col_fence = args.col_fence
+        solver.io.full_width_enabled = args.full_width
+
     return solver
 
 
 def main():
     parser = create_arg_parser()
     args = parser.parse_args()
-    print(args)
+    # print(args)
 
     solver = create_solver(args)
     if args.mode == 'gram':
-        puzzle = load_puzzle(args.puzzle_file)
-        print(puzzle.row_clues)
-        print(puzzle.col_clues)
-        print(puzzle.board)
+        puzzle = solver.io.load_puzzle(args.puzzle_file)
         solver.pre_check(puzzle)
         board = solver.solve(puzzle)
-        print(format_board(board, 0, 0))
-        print('Finished' if board.finished() else 'NOT Finished')
+        print(solver.io.format_board(board))
         if board.finished():
             solver.verify(puzzle, board)
+        else:
+            print()
+            print('NOT Solved!!!')
     elif args.mode == 'line':
-        content = parse_line_content(args.content, args.length)
+        content = solver.io.parse_line(args.content, args.length)
         solver.solve_line(args.clues, content)
-        print(format_line(content, col_fence=5))
+        print(solver.io.format_line(content))
 
 
 if __name__ == '__main__':

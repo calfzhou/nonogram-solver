@@ -36,153 +36,153 @@ simple_boxes_2:
 simple_spaces_1:
   length: 10
   clues: [3, 1]
-  marked: '...o.|...o.'
+  origin: '...o.|...o.'
   result: 'x..o.|.xxox'
 
 forcing_1:
   length: 10
   clues: [3, 2]
-  marked: '....x|.x...'
+  origin: '....x|.x...'
   result: '.oo.x|xx.o.'
 
 glue_1:
   length: 10
   clues: [5]
-  marked: '..o..|.....'
+  origin: '..o..|.....'
   direct: '..ooo|.....'
   result: '..ooo|..xxx'
 
 glue_2:
   length: 10
   clues: [1, 3]
-  marked: 'o.x.o|.....'
+  origin: 'o.x.o|.....'
   direct: 'o.x.o|o....'
   result: 'oxx.o|o.xxx'
 
 joining_splitting_1:
   length: 15
   clues: [5, 2, 2]
-  marked: '..oo.|oo...|o.o..'
+  origin: '..oo.|oo...|o.o..'
   direct: '..ooo|oo..o|oxoo.'
   result: 'xxooo|ooxxo|oxoox'
 
 uncertain_splitting_1:
   length: 30
   clues: [4, 4, 1]
-  marked: '..........|..o..oo...|..........'
+  origin: '..........|..o..oo...|..........'
   result: 'xxxxxxxxx.|ooo..ooo..|..........'
 
 uncertain_splitting_2:
   length: 30
   clues: [3, 3, 3]
-  marked: '..........|..........|.o..o....x'
+  origin: '..........|..........|.o..o....x'
   result: '..........|..........|oo..oo.xxx'
 
 uncertain_splitting_3:
   length: 25
   clues: [1, 2, 1, 1, 3, 2]
-  marked: '...o.|o.xxx|.x...|.....|.....'
+  origin: '...o.|o.xxx|.x...|.....|.....'
   result: '...ox|o.xxx|.x...|.....|.....'
 
 uncertain_splitting_4:
   length: 25
   clues: [1, 3, 3, 3, 1, 1, 1]
-  marked: '...o.|.x.oo|.o...|.....|...xo'
+  origin: '...o.|.x.oo|.o...|.....|...xo'
   result: '...o.|.xooo|xooox|.....|...xo'
 
 mercury_1:
   length: 10
   clues: [4]
-  marked: '....o|o....'
+  origin: '....o|o....'
   direct: 'xx..o|o....'
   result: 'xx..o|o..xx'
 
 uncertain_clues_1:
   length: 20
   clues: [4, 4]
-  marked: '.....|..xo.|.....|.....'
+  origin: '.....|..xo.|.....|.....'
   result: '.....|..xoo|oox..|.....'
 
 uncertain_clues_2:
   length: 20
   clues: [3, 4]
-  marked: '.....|..xo.|.....|.....'
+  origin: '.....|..xo.|.....|.....'
   result: '.....|..xoo|o....|.....'
 
 uncertain_clues_3:
   length: 20
   clues: [4, 4]
-  marked: '.....|.x.o.|.....|.....'
+  origin: '.....|.x.o.|.....|.....'
   result: '.....|.x.oo|o....|.....'
 
 uncertain_clues_4:
   length: 20
   clues: [3, 4]
-  marked: '.....|.x.o.|.....|.....'
+  origin: '.....|.x.o.|.....|.....'
   result: '.....|.x.oo|.....|.....'
 
 uncertain_clues_5:
   length: 20
   clues: [4, 4]
-  marked: '.....|.x.o.|.x...|.....'
+  origin: '.....|.x.o.|.x...|.....'
   result: '.....|.xooo|ox...|.....'
 
 uncertain_clues_6:
   length: 20
   clues: [4, 4]
-  marked: '.....|.x..o|...x.|.....'
+  origin: '.....|.x..o|...x.|.....'
   result: '.....|.x..o|o..x.|.....'
 
 uncertain_clues_7:
   length: 20
   clues: [4, 4]
-  marked: '.....|..x.o|..x..|.....'
+  origin: '.....|..x.o|..x..|.....'
   result: '.....|..xoo|oox..|.....'
 
 uncertain_clues_8:
   length: 30
   clues: [2, 2, 2, 1]
-  marked: '..........|.......oxo|..........'
+  origin: '..........|.......oxo|..........'
   result: '..........|.....xooxo|..........'
 
 # uncertain_clues_made_space_1:
 #   length: 30
 #   clues: [5, 6, 2]
-#   marked: '........x|...oooo...|..........'
+#   origin: '........x|...oooo...|..........'
 #   result: '........x|x..oooo...|..........'
 
 special_space_1:
   length: 10
   clues: [1, 2]
-  marked: '..o..|.....'
+  origin: '..o..|.....'
   result: '.xo..|.....'
 
 special_space_2:
   length: 10
   clues: [2, 1]
-  marked: '.....|..o..'
+  origin: '.....|..o..'
   result: '.....|..ox.'
 
 special_space_3:
   length: 10
   clues: [2, 4]
-  marked: '...oo|.....'
+  origin: '...oo|.....'
   result: '..xoo|.o...'
 
 special_spaces_4:
   length: 10
   clues: [1, 1, 2]
-  marked: '....o.....'
+  origin: '....o.....'
   result: '...xo.....'
 
 # special_spaces_5:
 #   length: 10
 #   clues: [1, 2]
-#   marked: '...ox.....'
+#   origin: '...ox.....'
 #   result: '.x.ox.....'
 
 # special_spaces_6:
 #   length: 30
 #   clues: [2, 2, 1, 1, 2, 2, 1, 2, 2]
-#   marked: 'ooxxooxxox|...ox....o|xo........'
+#   origin: 'ooxxooxxox|...ox....o|xo........'
 #   result: 'ooxxooxxox|.x.ox....o|xo........'
