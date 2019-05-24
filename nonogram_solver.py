@@ -1083,6 +1083,7 @@ class NonogramSolver:
 
 def create_arg_parser() -> argparse.ArgumentParser:
     strtobool = lambda s: bool(distutils.util.strtobool(s))
+    int_pair = lambda s: tuple(int(x) for x in s.split(',', 1))
 
     parser = argparse.ArgumentParser(description='Nonograms Puzzle Solver', allow_abbrev=False)
     parser.add_argument('--version', action='version', version=f'nonograms_solver {__version__}')
@@ -1100,16 +1101,14 @@ def create_arg_parser() -> argparse.ArgumentParser:
                           help='whether print board after each deducing step (highlight changes) (default: false)')
     parser_g.add_argument('--progress-pause', type=float, default=0.5,
                           help='pause some time (in seconds) between each progress board view (default: 0.5)')
-    parser_g.add_argument('--trace-deduce', type=strtobool,
+    parser_g.add_argument('--show-deduce', type=strtobool,
                           nargs='?', const=True, default=False, choices=[True, False],
                           help='whether print every line deducing result (default: false)')
-    parser_g.add_argument('--trace-guess', type=strtobool,
+    parser_g.add_argument('--show-guess', type=strtobool,
                           nargs='?', const=True, default=False, choices=[True, False],
                           help='whether print every guessing step (default: false)')
-    parser_g.add_argument('--row-fence', type=int, default=0,
-                          help='if greater than 0, print row fence when printing gram (default: 0)')
-    parser_g.add_argument('--col-fence', type=int, default=0,
-                          help='if greater than 0, print column fence when printing gram (default: 0)')
+    parser_g.add_argument('--grid', type=int_pair, nargs='?', default=(0, 0), const=(5, 5), metavar='WIDTH[,HEIGHT]',
+                          help='show major grid line when printing gram with the given size (default: 5,5)')
     parser_g.add_argument('--line-fence', type=int, default=5,
                           help='if greater than 0, print fence when printing single line (default: 5)')
     parser_g.add_argument('--full-width', type=strtobool,
@@ -1137,10 +1136,10 @@ def create_solver(args) -> NonogramSolver:
         solver.guess_enabled = args.guess
         solver.deduce_board_visible = args.show_progress
         solver.deduce_board_pause = args.progress_pause
-        solver.line_deduce_visible = args.trace_deduce
-        solver.guessing_visible = args.trace_guess
-        solver.io.row_fence = args.row_fence
-        solver.io.col_fence = args.col_fence
+        solver.line_deduce_visible = args.show_deduce
+        solver.guessing_visible = args.show_guess
+        solver.io.col_fence = args.grid[0]
+        solver.io.row_fence = args.grid[-1]
         solver.io.full_width_enabled = args.full_width
 
     return solver
