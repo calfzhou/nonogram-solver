@@ -21,11 +21,12 @@ class TestCase(unittest.TestCase):
         try:
             solver.solve_line(clues, line)
         except ParadoxError:
-            self.assertIsNone(result)
+            self.assertIsNone(result, 'unexpected paradox occurs')
         else:
-            self.assertIsNotNone(result)
+            self.assertIsNotNone(result, 'did not find paradox')
             expected = solver.io.parse_line(result, length)
-            self.assertSequenceEqual(solver.io.format_line(line), solver.io.format_line(expected))
+            self.assertSequenceEqual(
+                solver.io.format_line(line), solver.io.format_line(expected), 'not correctly solved')
 
 
 if __name__ == '__main__':

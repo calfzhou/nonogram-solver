@@ -19,7 +19,7 @@ class TestCase(unittest.TestCase):
 
         solver.pre_check(puzzle)
         board = solver.solve(puzzle)
-        self.assertTrue(board.finished())
+        self.assertTrue(board.finished(), 'gram was not fully solved')
         solver.verify(puzzle, board)
 
 
