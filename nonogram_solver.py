@@ -318,6 +318,14 @@ class ClueExtra:
     def boxes(self) -> Block:
         return self._boxes
 
+    @property
+    def prev_clue(self) -> 'ClueExtra':
+        return self._prev
+
+    @property
+    def next_clue(self) -> 'ClueExtra':
+        return self._next
+
     def finished(self) -> bool:
         return self._boxes and self._boxes.length == self._value
 
@@ -332,15 +340,6 @@ class ClueExtra:
                 prev._set_next(curr)
                 curr._set_prev(prev)
             prev = curr
-
-    def off_chain(self):
-        if self._prev:
-            self._prev._set_next(None)
-            self._set_prev(None)
-
-        if self._next:
-            self._next._set_prev(None)
-            self._set_next(None)
 
     def confirm_boxes(self, boxes: Block):
         if self._boxes is None:
@@ -716,7 +715,7 @@ class LineSolver:
             if not prev_clues:
                 raise ParadoxError(f'boxes {prev_block} cannot be matched to any clue')
 
-        # Check confirmed boxes and special space.
+        # Check confirmed boxes and special space, push other clues' candidates range.
         index = 0
         while index < len(known_boxes):
             block, clues = known_boxes[index]
@@ -725,6 +724,17 @@ class LineSolver:
                 del known_boxes[index]
                 updated = True
                 continue
+
+            # Push prev and next clues' candidates range.
+            prev_clue = clues[0].prev_clue
+            if prev_clue and prev_clue.candidates.end >= block.begin:
+                prev_clue.remove_tail_candidates(block.begin - 1)
+                updated = True
+
+            next_clue = clues[-1].next_clue
+            if next_clue and next_clue.candidates.begin <= block.end:
+                next_clue.remove_head_candidates(block.end + 1)
+                updated = True
 
             # Special space.
             if block.begin == clues[-1].candidates.begin and block.length < clues[-1].value:
