@@ -318,12 +318,10 @@ class ClueExtra:
     def boxes(self) -> Block:
         return self._boxes
 
-    @property
-    def prev_clue(self) -> 'ClueExtra':
+    def get_prev(self) -> 'ClueExtra':
         return self._prev
 
-    @property
-    def next_clue(self) -> 'ClueExtra':
+    def get_next(self) -> 'ClueExtra':
         return self._next
 
     def finished(self) -> bool:
@@ -341,6 +339,15 @@ class ClueExtra:
                 curr._set_prev(prev)
             prev = curr
 
+    def _off_chain(self):
+        if self._prev:
+            self._prev._set_next(None)
+            self._set_prev(None)
+
+        if self._next:
+            self._next._set_prev(None)
+            self._set_next(None)
+
     def confirm_boxes(self, boxes: Block):
         if self._boxes is None:
             self._boxes = boxes
@@ -353,6 +360,8 @@ class ClueExtra:
             return
 
         self._on_boxes_extended()
+        if self.finished():
+            self._off_chain()
 
     def can_contain_box(self, boxes: Block, boundary: Block) -> Ternary:
         if boxes.length > self._value:
@@ -726,12 +735,12 @@ class LineSolver:
                 continue
 
             # Push prev and next clues' candidates range.
-            prev_clue = clues[0].prev_clue
+            prev_clue = clues[0].get_prev()
             if prev_clue and prev_clue.candidates.end >= block.begin:
                 prev_clue.remove_tail_candidates(block.begin - 1)
                 updated = True
 
-            next_clue = clues[-1].next_clue
+            next_clue = clues[-1].get_next()
             if next_clue and next_clue.candidates.begin <= block.end:
                 next_clue.remove_head_candidates(block.end + 1)
                 updated = True
@@ -1109,8 +1118,8 @@ def create_arg_parser() -> argparse.ArgumentParser:
     parser_g.add_argument('--show-progress', type=strtobool,
                           nargs='?', const=True, default=False, choices=[True, False],
                           help='whether print board after each deducing step (highlight changes) (default: false)')
-    parser_g.add_argument('--progress-pause', type=float, default=0.5,
-                          help='pause some time (in seconds) between each progress board view (default: 0.5)')
+    parser_g.add_argument('--progress-pause', type=float, default=0.2,
+                          help='pause some time (in seconds) between each progress board view (default: 0.2)')
     parser_g.add_argument('--show-deduce', type=strtobool,
                           nargs='?', const=True, default=False, choices=[True, False],
                           help='whether print every line deducing result (default: false)')
