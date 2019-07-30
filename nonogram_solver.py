@@ -95,9 +95,6 @@ class Board:
         length = self._width if (line.kind == LineKind.ROW) else self._height
         return [self[line.get_coord(i)] for i in range(length)]
 
-    def __str__(self):
-        return format_board(self)
-
 
 class NonogramPuzzle(typing.NamedTuple):
     row_clues: typing.Tuple[typing.Tuple[int]]
@@ -695,7 +692,10 @@ class LineSolver:
 
             index += 1
 
-        # Push prev and next known boxes' clues.
+        # NOTE: Pushing prev and next know boxes' clues can be covered by shrinking clues' candates range.
+        # But using this logic make solving faster.
+
+        # Push next known boxes' clues.
         for index in range(len(known_boxes) - 1):
             block, clues = known_boxes[index]
             next_block, next_clues = known_boxes[index + 1]
@@ -709,6 +709,7 @@ class LineSolver:
             if not next_clues:
                 raise ParadoxError(f'boxes {next_block} cannot be matched to any clue')
 
+        # Push prev known boxes' clues.
         for index in range(len(known_boxes) - 1, 0, -1):
             block, clues = known_boxes[index]
             prev_block, prev_clues = known_boxes[index - 1]
@@ -724,28 +725,44 @@ class LineSolver:
             if not prev_clues:
                 raise ParadoxError(f'boxes {prev_block} cannot be matched to any clue')
 
-        # Check confirmed boxes and special space, push other clues' candidates range.
         index = 0
         while index < len(known_boxes):
             block, clues = known_boxes[index]
+
+            # Check confirmed boxes.
             if len(clues) == 1:
                 clues[0].confirm_boxes(block)
                 del known_boxes[index]
                 updated = True
                 continue
 
-            # Push prev and next clues' candidates range.
-            prev_clue = clues[0].get_prev()
-            if prev_clue and prev_clue.candidates.end >= block.begin:
-                prev_clue.remove_tail_candidates(block.begin - 1)
+            # Shrink the first clue's candidates range.
+            first_clue = clues[0]
+            if first_clue.candidates.end > block.begin + first_clue.value:
+                first_clue.remove_tail_candidates(block.begin + first_clue.value)
                 updated = True
 
-            next_clue = clues[-1].get_next()
-            if next_clue and next_clue.candidates.begin <= block.end:
-                next_clue.remove_head_candidates(block.end + 1)
+            # Shrink the last clue's candidates range.
+            last_clue = clues[-1]
+            if last_clue.candidates.begin < block.end - last_clue.value:
+                last_clue.remove_head_candidates(block.end - last_clue.value)
                 updated = True
 
-            # Special space.
+            # NOTE: Pushing prev and next clues' candidates range can be covered by shrinking clues' candates range.
+
+            # # Push prev clues' candidates range.
+            # prev_clue = clues[0].get_prev()
+            # if prev_clue and prev_clue.candidates.end >= block.begin:
+            #     prev_clue.remove_tail_candidates(block.begin - 1)
+            #     updated = True
+
+            # # Push next clues' candidates range.
+            # next_clue = clues[-1].get_next()
+            # if next_clue and next_clue.candidates.begin <= block.end:
+            #     next_clue.remove_head_candidates(block.end + 1)
+            #     updated = True
+
+            # Check special space.
             if block.begin == clues[-1].candidates.begin and block.length < clues[-1].value:
                 if all(block.length == c.value for c in clues[:-1]) and not self._is_space(block.begin - 1):
                     self._set_space(block.begin - 1)
