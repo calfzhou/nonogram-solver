@@ -692,9 +692,6 @@ class LineSolver:
 
             index += 1
 
-        # NOTE: Pushing prev and next know boxes' clues can be covered by shrinking clues' candates range.
-        # But using this logic make solving faster.
-
         # Push next known boxes' clues.
         for index in range(len(known_boxes) - 1):
             block, clues = known_boxes[index]
@@ -702,9 +699,9 @@ class LineSolver:
             while next_clues and next_clues[0].index < clues[0].index:
                 next_clues.pop(0)
 
-            if next_clues and next_clues[0].index == clues[0].index:
-                if not self._can_join(block, next_block, clues[0].value):
-                    next_clues.pop(0)
+            if (next_clues and next_clues[0].index == clues[0].index and
+                    not self._can_join(block, next_block, clues[0].value)):
+                next_clues.pop(0)
 
             if not next_clues:
                 raise ParadoxError(f'boxes {next_block} cannot be matched to any clue')
@@ -717,10 +714,10 @@ class LineSolver:
                 prev_clues.pop()
                 updated = True
 
-            if prev_clues and prev_clues[-1].index == clues[-1].index:
-                if not self._can_join(prev_block, block, clues[-1].value):
-                    prev_clues.pop()
-                    updated = True
+            if (prev_clues and prev_clues[-1].index == clues[-1].index and
+                    not self._can_join(prev_block, block, clues[-1].value)):
+                prev_clues.pop()
+                updated = True
 
             if not prev_clues:
                 raise ParadoxError(f'boxes {prev_block} cannot be matched to any clue')
@@ -737,18 +734,18 @@ class LineSolver:
                 continue
 
             # Shrink the first clue's candidates range.
+            # This will automatically push prev clues' candidates range.
             first_clue = clues[0]
             if first_clue.candidates.end > block.begin + first_clue.value:
                 first_clue.remove_tail_candidates(block.begin + first_clue.value)
                 updated = True
 
             # Shrink the last clue's candidates range.
+            # This will automatically push next clues' candidates range.
             last_clue = clues[-1]
             if last_clue.candidates.begin < block.end - last_clue.value:
                 last_clue.remove_head_candidates(block.end - last_clue.value)
                 updated = True
-
-            # NOTE: Pushing prev and next clues' candidates range can be covered by shrinking clues' candates range.
 
             # # Push prev clues' candidates range.
             # prev_clue = clues[0].get_prev()
@@ -1089,8 +1086,6 @@ class NonogramSolver:
     def verify(self, puzzle: NonogramPuzzle, board: Board):
         row_boxes = [[0] for _ in range(board.height)]
         col_boxes = [[0] for _ in range(board.width)]
-        # row_boxes = [None] * board.height
-        # col_boxes = [None] * board.width
         for row in range(board.height):
             for col in range(board.width):
                 value = board[Coord(row, col)]
