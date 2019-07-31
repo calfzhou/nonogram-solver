@@ -698,10 +698,12 @@ class LineSolver:
             next_block, next_clues = known_boxes[index + 1]
             while next_clues and next_clues[0].index < clues[0].index:
                 next_clues.pop(0)
+                updated = True
 
             if (next_clues and next_clues[0].index == clues[0].index and
                     not self._can_join(block, next_block, clues[0].value)):
                 next_clues.pop(0)
+                updated = True
 
             if not next_clues:
                 raise ParadoxError(f'boxes {next_block} cannot be matched to any clue')
