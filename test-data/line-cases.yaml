@@ -234,3 +234,9 @@ mixed_2:
   clues: [2, 2, 2, 2, 1, 6]
   origin: '.....|.....|.....|.*..@|.**..|.....'
   result: '.....|.....|.....|.***@|***.@|@@@@.'
+
+real_1:
+  length: 30
+  clues: [4, 2, 4, 2, 4]
+  origin: '.....|ooxxx|x..x.|.ooxx|xx..x|oooox'
+  result: '...o.|ooxxx|x..xo|oooxx|xxoox|oooox'
