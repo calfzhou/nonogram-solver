@@ -5,7 +5,6 @@ import collections
 import copy
 import enum
 import itertools
-import math
 import sys
 import time
 import typing
@@ -26,12 +25,7 @@ class LineKind(enum.Enum):
     COL = enum.auto()
 
     def orthogonal(self) -> 'LineKind':
-        if self is self.ROW:
-            return self.COL
-        elif self is self.COL:
-            return self.ROW
-        else:
-            raise ValueError(f'{self} has no orthogonal line')
+        return LineKind.COL if self is LineKind.ROW else LineKind.ROW
 
     def __str__(self):
         return self.name
@@ -90,7 +84,7 @@ class Board:
     def finished(self) -> bool:
         return self._confirmed == self._height * self._width
 
-    def get_line_content(self, line: Line) -> typing.Tuple[CellType]:
+    def get_line_content(self, line: Line) -> typing.List[CellType]:
         length = self._width if (line.kind == LineKind.ROW) else self._height
         return [self[line.get_coord(i)] for i in range(length)]
 
@@ -98,7 +92,7 @@ class Board:
 class NonogramPuzzle(typing.NamedTuple):
     row_clues: typing.Tuple[typing.Tuple[int]]
     col_clues: typing.Tuple[typing.Tuple[int]]
-    board: Board
+    board: typing.Optional[Board]
 
     @property
     def height(self) -> int:
@@ -143,7 +137,7 @@ class Block(typing.NamedTuple):
         return f'[{self.begin + 1}-{self.end}]'
 
     @classmethod
-    def build(cls, begin: int, end: int=None, min_length=1):
+    def build(cls, begin: int, end: typing.Optional[int] = None, min_length=1):
         end = (begin + 1) if (end is None) else end
         return cls(begin, end) if (end - begin >= min_length) else None
 
@@ -151,7 +145,7 @@ class Block(typing.NamedTuple):
 class BlockSection:
     ignore_attrs = {'_prev', '_next'}
 
-    def __init__(self, begin: int, end: int=None, min_length=1):
+    def __init__(self, begin: int, end: typing.Optional[int] = None, min_length=1):
         self._blocks: typing.List[Block] = []
         self._min_length = min_length
 
@@ -384,10 +378,6 @@ class ClueExtra:
 
         if merged.length > self._value:
             return Ternary.NO
-
-        # This is not possible.
-        # if merged not in self._candidates:
-        #     return Ternary.NO
 
         return Ternary.YES
 
@@ -659,7 +649,10 @@ class LineSolver:
                 clue_max = max(clue.value for clue in clues)
 
                 if block.length < clue_min:
-                    temp_clue = ClueExtra(math.nan, clue_min, boundary.begin, boundary.end)
+                    # Probe how far the smallest plausible clue would force
+                    # this block's boxes to extend. index=-1 marks a temp clue
+                    # (it is never placed in a candidate list).
+                    temp_clue = ClueExtra(-1, clue_min, boundary.begin, boundary.end)
                     temp_clue.confirm_boxes(block)
                     if temp_clue.boxes.length > block.length:
                         for i in temp_clue.boxes.iter():
@@ -748,18 +741,6 @@ class LineSolver:
                 last_clue.remove_head_candidates(block.end - last_clue.value)
                 updated = True
 
-            # # Push prev clues' candidates range.
-            # prev_clue = clues[0].get_prev()
-            # if prev_clue and prev_clue.candidates.end >= block.begin:
-            #     prev_clue.remove_tail_candidates(block.begin - 1)
-            #     updated = True
-
-            # # Push next clues' candidates range.
-            # next_clue = clues[-1].get_next()
-            # if next_clue and next_clue.candidates.begin <= block.end:
-            #     next_clue.remove_head_candidates(block.end + 1)
-            #     updated = True
-
             # Check special space.
             if block.begin == clues[-1].candidates.begin and block.length < clues[-1].value:
                 if all(block.length == c.value for c in clues[:-1]) and not self._is_space(block.begin - 1):
@@ -828,8 +809,7 @@ class NonogramIO:
         self.box_symbols = { 'o', self.symbols.box, self.full_width_symbols.box }
         self.space_symbols = { 'x', self.symbols.space, self.full_width_symbols.space }
 
-    def format_line(self, content: typing.List[CellType], fence=None) -> str:
-        fence = self.line_fence if fence is None else fence
+    def format_line(self, content: typing.List[CellType]) -> str:
         parts = []
         for col, value in enumerate(content):
             if self.line_fence > 0 and col > 0 and col % self.line_fence == 0:
@@ -915,7 +895,7 @@ class NonogramIO:
     def load_puzzle(self, file_path) -> NonogramPuzzle:
         row_clues = []
         col_clues = []
-        board: Board = None
+        board: typing.Optional[Board] = None
         with (open(file_path) if file_path else sys.stdin) as f:
             section = 0
             row = 0
