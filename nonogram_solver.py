@@ -1114,13 +1114,6 @@ class NonogramSolver:
 
 
 def create_arg_parser() -> argparse.ArgumentParser:
-    def strtobool(s: str) -> bool:
-        s = s.strip().lower()
-        if s in ('y', 'yes', 't', 'true', 'on', '1'):
-            return True
-        if s in ('n', 'no', 'f', 'false', 'off', '0'):
-            return False
-        raise ValueError(f'invalid truth value: {s!r}')
     int_pair = lambda s: tuple(int(x) for x in s.split(',', 1))
 
     parser = argparse.ArgumentParser(description='Nonograms Puzzle Solver', allow_abbrev=False)
@@ -1131,27 +1124,22 @@ def create_arg_parser() -> argparse.ArgumentParser:
     parser_g.add_argument('puzzle_file', nargs='?',
                           help='a file contains the nanogram puzzle, see puzzles/*.txt for example'
                           ' (default: read from stdin)')
-    parser_g.add_argument('--guess', type=strtobool,
-                          nargs='?', const=True, default=False, choices=[True, False],
-                          help='whether enable guess when puzzle cannot be solved by deducing (default: false)')
-    parser_g.add_argument('--show-progress', type=strtobool,
-                          nargs='?', const=True, default=False, choices=[True, False],
-                          help='whether print board after each deducing step (highlight changes) (default: false)')
+    parser_g.add_argument('--guess', action=argparse.BooleanOptionalAction, default=False,
+                          help='whether enable guess when puzzle cannot be solved by deducing (default: False)')
+    parser_g.add_argument('--show-progress', action=argparse.BooleanOptionalAction, default=False,
+                          help='whether print board after each deducing step (highlight changes) (default: False)')
     parser_g.add_argument('--progress-pause', type=float, default=0.2,
                           help='pause some time (in seconds) between each progress board view (default: 0.2)')
-    parser_g.add_argument('--show-deduce', type=strtobool,
-                          nargs='?', const=True, default=False, choices=[True, False],
-                          help='whether print every line deducing result (default: false)')
-    parser_g.add_argument('--show-guess', type=strtobool,
-                          nargs='?', const=True, default=False, choices=[True, False],
-                          help='whether print every guessing step (default: false)')
+    parser_g.add_argument('--show-deduce', action=argparse.BooleanOptionalAction, default=False,
+                          help='whether print every line deducing result (default: False)')
+    parser_g.add_argument('--show-guess', action=argparse.BooleanOptionalAction, default=False,
+                          help='whether print every guessing step (default: False)')
     parser_g.add_argument('--grid', type=int_pair, nargs='?', default=(0, 0), const=(5, 5), metavar='WIDTH[,HEIGHT]',
                           help='show major grid line when printing gram with the given size (default: 5,5)')
     parser_g.add_argument('--line-fence', type=int, default=5,
                           help='if greater than 0, print fence when printing single line (default: 5)')
-    parser_g.add_argument('--full-width', type=strtobool,
-                          nargs='?', const=True, default=True, choices=[True, False],
-                          help='whether use full width char when print gram (default: true)')
+    parser_g.add_argument('--full-width', action=argparse.BooleanOptionalAction, default=True,
+                          help='whether use full width char when print gram (default: True)')
 
     parser_l = subparsers.add_parser('line', help='single line mode')
     parser_l.add_argument('length', type=int,
