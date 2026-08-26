@@ -1032,8 +1032,8 @@ class NonogramSolver:
                     guess: GuessData = guesses.pop()
                     board = guess.board
                     board[guess.coord] = CellType.SPACE
-                    lines[Line(LineKind.ROW, coord.row)] = None
-                    lines[Line(LineKind.COL, coord.col)] = None
+                    lines[Line(LineKind.ROW, guess.coord.row)] = None
+                    lines[Line(LineKind.COL, guess.coord.col)] = None
                     if self.guessing_visible:
                         indent = '  ' * (len(guesses) + 1)
                         print(f'{indent}[Paradox] {e}; so cell {guess.coord} should be SPACE')
