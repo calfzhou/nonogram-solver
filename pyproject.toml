@@ -1,0 +1,19 @@
+[project]
+name = "nonogram-solver"
+version = "0.1.0"
+description = "A deductive solver for nonograms"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []
+
+# This repo is plain scripts + tests, so don't try to build/install
+# the project itself into the virtualenv.
+[tool.uv]
+package = false
+
+# Test-only dependencies, managed by uv. Install them with `uv sync`.
+[dependency-groups]
+dev = [
+    "ddt==1.5.0",
+    "pyyaml>=6.0.2",
+]

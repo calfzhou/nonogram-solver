@@ -7,12 +7,11 @@ A deductive solver for [nonograms](https://en.wikipedia.org/wiki/Nonogram).
 There are two solving modes:
 
 - **gram** mode solves a whole nonogram
-
 - **line** mode solves a single line
 
 ### Gram Mode
 
-```
+```shell-session
 $ ./nonogram_solver.py gram -h
 usage: nonogram_solver.py gram [-h] [--guess [{True,False}]]
                                [--show-progress [{True,False}]]
@@ -57,7 +56,7 @@ optional arguments:
 
 ### Line Mode
 
-```
+```shell-session
 $ ./nonogram_solver.py line -h
 usage: nonogram_solver.py line [-h] [--content CONTENT]
                                [--line-fence LINE_FENCE]
@@ -75,4 +74,18 @@ optional arguments:
   --line-fence LINE_FENCE
                         if greater than 0, print fence when printing single
                         line (default: 5)
+```
+
+## Development & Testing
+
+Dependencies are managed with [uv](https://docs.astral.sh/uv/). The solver
+itself uses only the standard library; the test suite needs `ddt` and `pyyaml`,
+which are declared in the `dev` dependency group in `pyproject.toml`.
+
+```sh
+# Install test dependencies into .venv (also generates uv.lock)
+uv sync
+
+# Run the test suite
+uv run python -m unittest test_gram test_line
 ```

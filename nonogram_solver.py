@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import distutils.util
 import collections
 import copy
 import enum
@@ -1115,7 +1114,13 @@ class NonogramSolver:
 
 
 def create_arg_parser() -> argparse.ArgumentParser:
-    strtobool = lambda s: bool(distutils.util.strtobool(s))
+    def strtobool(s: str) -> bool:
+        s = s.strip().lower()
+        if s in ('y', 'yes', 't', 'true', 'on', '1'):
+            return True
+        if s in ('n', 'no', 'f', 'false', 'off', '0'):
+            return False
+        raise ValueError(f'invalid truth value: {s!r}')
     int_pair = lambda s: tuple(int(x) for x in s.split(',', 1))
 
     parser = argparse.ArgumentParser(description='Nonograms Puzzle Solver', allow_abbrev=False)
