@@ -29,10 +29,22 @@ class TestCase(unittest.TestCase):
     @ddt.data(*need_guess_grams())
     def test_guess_gram(self, gram_file_path):
         solver = NonogramSolver()
-        solver.guess_enabled = True
         puzzle = solver.io.load_puzzle(gram_file_path)
 
         solver.pre_check(puzzle)
+
+        # 1) deduction only must NOT finish -- the LOUD ALERT fires here if
+        #    a solver improvement ever makes this puzzle deducible.
+        solver.guess_enabled = False
+        deduce_board = solver.solve(puzzle)
+        self.assertFalse(
+            deduce_board.finished(),
+            f'needs-guessing puzzle is now solveable by deduction only; '
+            f'move {gram_file_path} out of puzzles/need-guess/',
+        )
+
+        # 2) deduction stalled -> guessing on the SAME solver + SAME puzzle.
+        solver.guess_enabled = True
         board = solver.solve(puzzle)
         self.assertTrue(board.finished(), 'gram was not fully solved by guessing')
         solver.verify(puzzle, board)
