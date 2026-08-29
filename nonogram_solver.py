@@ -949,77 +949,46 @@ class NonogramSolver:
 
     def solve(self, puzzle: NonogramPuzzle) -> Board:
         board = puzzle.board or Board(puzzle.height, puzzle.width)
-
-        lines = collections.OrderedDict()
-        lines.update((Line(LineKind.ROW, i), None) for i in range(board.height))
-        lines.update((Line(LineKind.COL, i), None) for i in range(board.width))
+        lines = self._all_lines(board)
 
         guesses: typing.List[GuessData] = []
         guessing = False
 
         while not board.finished():
-            if not lines:
-                if not self.guess_enabled:
-                    break
-
-                if not guessing:
-                    board = copy.deepcopy(board)
-                    guessing = True
-                    if self.guessing_visible:
-                        print('Deduce finished but not solved the puzzle, try guessing. The deduce result is:')
-                        print(self.io.format_board(board))
-                        print()
-
-                # guess
-                coord = self._choose_cell(board)
-                guesses.append(GuessData(coord, copy.deepcopy(board)))
-                board[coord] = CellType.BOX
-                lines[Line(LineKind.ROW, coord.row)] = None
-                lines[Line(LineKind.COL, coord.col)] = None
-                if self.guessing_visible:
-                    indent = '  ' * (len(guesses) - 1)
-                    print(f'{indent}[Guess {len(guesses)}] assume cell {coord} is BOX')
-
             try:
-                while lines:
-                    line, _ = lines.popitem(last=False)
-                    clues = puzzle.get_line_clues(line)
-                    content = board.get_line_content(line)
-                    origin = self.io.format_line(content)
-                    changes = self.solve_line(clues, content, line)
-                    if changes:
-                        if self.line_deduce_visible:
-                            print(f'solving {line}: {clues}')
-                            print(f'origin: {origin}')
-                            print(f'result: {self.io.format_line(content)}')
-                            print()
-                        orthogonal = line.kind.orthogonal()
-                        for i in sorted(changes):
-                            value = content[i]
-                            assert value is not None, f'{line} cell {i + 1} set to None is meaningless'
-                            coord = line.get_coord(i)
-                            assert board[coord] is None, f'{line} cell {i + 1} is already confirmed'
-                            if board[coord] is None and value is not None:
-                                board[coord] = value
-                                lines[Line(orthogonal, i)] = None
-                        if self.deduce_board_visible:
-                            highlights = set(line.get_coord(i) for i in changes)
-                            print(self.io.format_board(board, highlights=highlights))
-                            print()
-                            time.sleep(self.deduce_board_pause)
+                self._propagate(puzzle, board, lines)
             except ParadoxError as e:
                 if guesses:
                     guess: GuessData = guesses.pop()
                     board = guess.board
                     board[guess.coord] = CellType.SPACE
-                    lines[Line(LineKind.ROW, guess.coord.row)] = None
-                    lines[Line(LineKind.COL, guess.coord.col)] = None
+                    lines.update(self._cell_lines(guess.coord))
                     if self.guessing_visible:
                         indent = '  ' * (len(guesses) + 1)
                         print(f'{indent}[Paradox] {e}; so cell {guess.coord} should be SPACE')
                 else:
                     print(self.io.format_board(board))
                     raise
+                continue
+
+            if board.finished() or not self.guess_enabled:
+                break
+
+            if not guessing:
+                board = copy.deepcopy(board)
+                guessing = True
+                if self.guessing_visible:
+                    print('Deduce finished but not solved the puzzle, try guessing. The deduce result is:')
+                    print(self.io.format_board(board))
+                    print()
+
+            coord = self._choose_cell(board)
+            guesses.append(GuessData(coord, copy.deepcopy(board)))
+            board[coord] = CellType.BOX
+            lines = self._cell_lines(coord)
+            if self.guessing_visible:
+                indent = '  ' * (len(guesses) - 1)
+                print(f'{indent}[Guess {len(guesses)}] assume cell {coord} is BOX')
 
         if guessing and self.guessing_visible and board.finished():
             indent = '  ' * len(guesses)
@@ -1027,6 +996,50 @@ class NonogramSolver:
             print()
 
         return board
+
+    def _all_lines(self, board: Board) -> collections.OrderedDict:
+        lines = collections.OrderedDict()
+        lines.update((Line(LineKind.ROW, i), None) for i in range(board.height))
+        lines.update((Line(LineKind.COL, i), None) for i in range(board.width))
+        return lines
+
+    def _cell_lines(self, coord: Coord) -> collections.OrderedDict:
+        return collections.OrderedDict((
+            (Line(LineKind.ROW, coord.row), None),
+            (Line(LineKind.COL, coord.col), None),
+        ))
+
+    def _propagate(self, puzzle: NonogramPuzzle, board: Board, lines: collections.OrderedDict,
+                   visible: bool=True):
+        while lines:
+            line, _ = lines.popitem(last=False)
+            clues = puzzle.get_line_clues(line)
+            content = board.get_line_content(line)
+            origin = self.io.format_line(content)
+            changes = self.solve_line(clues, content, line)
+            if not changes:
+                continue
+
+            if visible and self.line_deduce_visible:
+                print(f'solving {line}: {clues}')
+                print(f'origin: {origin}')
+                print(f'result: {self.io.format_line(content)}')
+                print()
+
+            orthogonal = line.kind.orthogonal()
+            for i in sorted(changes):
+                value = content[i]
+                assert value is not None, f'{line} cell {i + 1} set to None is meaningless'
+                coord = line.get_coord(i)
+                assert board[coord] is None, f'{line} cell {i + 1} is already confirmed'
+                board[coord] = value
+                lines[Line(orthogonal, i)] = None
+
+            if visible and self.deduce_board_visible:
+                highlights = set(line.get_coord(i) for i in changes)
+                print(self.io.format_board(board, highlights=highlights))
+                print()
+                time.sleep(self.deduce_board_pause)
 
     def _choose_cell(self, board: Board):
         for row in range(board.height):
