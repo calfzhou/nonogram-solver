@@ -805,7 +805,7 @@ class NonogramIO:
         self.full_width_enabled = False
 
         self.symbols = self.SymbolColl('@', '*', '.', '|', '-', '+')
-        self.full_width_symbols = self.SymbolColl('䨻', 'ｘ', '、', '｜', '－', '＋')
+        self.full_width_symbols = self.SymbolColl('䨻', 'ｘ', '・', '｜', '－', '＋')
         self.box_symbols = { 'o', self.symbols.box, self.full_width_symbols.box }
         self.space_symbols = { 'x', self.symbols.space, self.full_width_symbols.space }
 
