@@ -14,10 +14,12 @@ There are two solving modes:
 ```shell-session
 $ ./nonogram_solver.py gram -h
 usage: nonogram_solver.py gram [-h] [--guess | --no-guess]
+                               [--probe | --no-probe]
                                [--show-progress | --no-show-progress]
                                [--progress-pause PROGRESS_PAUSE]
                                [--show-deduce | --no-show-deduce]
                                [--show-guess | --no-show-guess]
+                               [--show-probe | --no-show-probe]
                                [--grid [WIDTH[,HEIGHT]]]
                                [--line-fence LINE_FENCE]
                                [--full-width | --no-full-width]
@@ -31,6 +33,8 @@ options:
   -h, --help            show this help message and exit
   --guess, --no-guess   whether enable guess when puzzle cannot be solved by
                         deducing (default: False)
+  --probe, --no-probe   whether use contradiction probing when line deduction
+                        stalls (default: False)
   --show-progress, --no-show-progress
                         whether print board after each deducing step
                         (highlight changes) (default: False)
@@ -42,6 +46,9 @@ options:
                         False)
   --show-guess, --no-show-guess
                         whether print every guessing step (default: False)
+  --show-probe, --no-show-probe
+                        whether print every contradiction probing step
+                        (default: False)
   --grid [WIDTH[,HEIGHT]]
                         show major grid line when printing gram with the given
                         size (default: 5,5)
@@ -51,6 +58,14 @@ options:
   --full-width, --no-full-width
                         whether use full width char when print gram (default:
                         True)
+```
+
+With `--probe`, when ordinary row/column deduction stalls, the solver tries each
+unknown cell hypothetically and commits a value only when its opposite leads
+to a paradox. This is deterministic deduction; `--guess` remains a separate
+DFS fallback for puzzles where neither line deduction nor probing is enough.
+Use `--show-probe` with `--probe` to print each assumption, whether it led to a
+contradiction, and any forced-cell deduction.
 
 ### Line Mode
 

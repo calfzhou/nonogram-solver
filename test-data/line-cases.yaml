@@ -240,3 +240,21 @@ real_1:
   clues: [4, 2, 4, 2, 4]
   origin: '.....|ooxxx|x..x.|.ooxx|xx..x|oooox'
   result: '...o.|ooxxx|x..xo|oooxx|xxoox|oooox'
+
+finished_paradox:
+  length: 5
+  clues: [2]
+  origin: '@@@**'
+  result:
+
+forced_finish_paradox:
+  length: 5
+  clues: [2]
+  origin: '@.@..'
+  result:
+
+empty_paradox:
+  length: 5
+  clues: [0]
+  origin: '@....'
+  result:

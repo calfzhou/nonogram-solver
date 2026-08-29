@@ -449,7 +449,7 @@ class BoxBlockAndClues(typing.NamedTuple):
 
 class LineSolver:
     def __init__(self, clues: typing.Tuple[int], content: typing.List[CellType]):
-        self._clues = clues
+        self._clues = tuple(clues)
         self._content = content
         self._width = len(content)
 
@@ -527,8 +527,12 @@ class LineSolver:
             elif value == CellType.SPACE:
                 space_count += 1
 
+        if clue_sum == 0 and box_count:
+            raise ParadoxError('empty line cannot contain boxes')
+
         # Check if all cells finished.
         if box_count + space_count == self._width:
+            self._validate_finished()
             return True
 
         if box_count == clue_sum:
@@ -544,7 +548,24 @@ class LineSolver:
             if self._content[i] is None:
                 self._mark_cell(i, value)
 
+        self._validate_finished()
         return True
+
+    def _validate_finished(self):
+        boxes = []
+        box_length = 0
+        for value in self._content:
+            if value == CellType.BOX:
+                box_length += 1
+            elif box_length:
+                boxes.append(box_length)
+                box_length = 0
+        if box_length:
+            boxes.append(box_length)
+
+        boxes = tuple(boxes) or (0,)
+        if boxes != self._clues:
+            raise ParadoxError(f'boxes {boxes} do not match clues {self._clues}')
 
     def _trim_finished(self, begin: int, end: int, clue_begin: int, clue_end: int, step: int):
         while begin != end:
@@ -940,10 +961,12 @@ class NonogramIO:
 class NonogramSolver:
     def __init__(self):
         self.guess_enabled = False
+        self.probe_enabled = False
         self.line_deduce_visible = False
         self.deduce_board_visible = False
         self.deduce_board_pause = 0
         self.guessing_visible = False
+        self.probing_visible = False
 
         self.io = NonogramIO()
 
@@ -955,14 +978,17 @@ class NonogramSolver:
         guessing = False
 
         while not board.finished():
+            forced_cell = None
             try:
                 self._propagate(puzzle, board, lines)
+                if not board.finished() and self.probe_enabled:
+                    forced_cell = self._find_contradiction_deduction(puzzle, board)
             except ParadoxError as e:
                 if guesses:
                     guess: GuessData = guesses.pop()
                     board = guess.board
                     board[guess.coord] = CellType.SPACE
-                    lines.update(self._cell_lines(guess.coord))
+                    lines = self._cell_lines(guess.coord)
                     if self.guessing_visible:
                         indent = '  ' * (len(guesses) + 1)
                         print(f'{indent}[Paradox] {e}; so cell {guess.coord} should be SPACE')
@@ -971,7 +997,16 @@ class NonogramSolver:
                     raise
                 continue
 
-            if board.finished() or not self.guess_enabled:
+            if board.finished():
+                break
+
+            if forced_cell:
+                coord, value = forced_cell
+                board[coord] = value
+                lines = self._cell_lines(coord)
+                continue
+
+            if not self.guess_enabled:
                 break
 
             if not guessing:
@@ -1040,6 +1075,43 @@ class NonogramSolver:
                 print(self.io.format_board(board, highlights=highlights))
                 print()
                 time.sleep(self.deduce_board_pause)
+
+    def _find_contradiction_deduction(
+            self, puzzle: NonogramPuzzle, board: Board) -> typing.Optional[typing.Tuple[Coord, CellType]]:
+        for row in range(board.height):
+            for col in range(board.width):
+                coord = Coord(row, col)
+                if board[coord] is not None:
+                    continue
+
+                rejected = []
+                for value in (CellType.BOX, CellType.SPACE):
+                    if self.probing_visible:
+                        print(f'[Probe] assume cell {coord} is {value}')
+
+                    probe_board = copy.deepcopy(board)
+                    probe_board[coord] = value
+                    try:
+                        self._propagate(
+                            puzzle, probe_board, self._cell_lines(coord), visible=False)
+                    except ParadoxError as e:
+                        rejected.append(value)
+                        if self.probing_visible:
+                            print(f'[Probe paradox] {e}')
+                    else:
+                        if self.probing_visible:
+                            print('[Probe] no contradiction found')
+
+                if len(rejected) == 2:
+                    raise ParadoxError(f'cell {coord} cannot be either BOX or SPACE')
+                elif rejected:
+                    value = CellType.SPACE if rejected[0] == CellType.BOX else CellType.BOX
+                    if self.probing_visible:
+                        print(f'[Probe deduction] cell {coord} must be {value}')
+                        print()
+                    return coord, value
+
+        return None
 
     def _choose_cell(self, board: Board):
         for row in range(board.height):
@@ -1119,6 +1191,8 @@ def create_arg_parser() -> argparse.ArgumentParser:
                           ' (default: read from stdin)')
     parser_g.add_argument('--guess', action=argparse.BooleanOptionalAction, default=False,
                           help='whether enable guess when puzzle cannot be solved by deducing (default: False)')
+    parser_g.add_argument('--probe', action=argparse.BooleanOptionalAction, default=False,
+                          help='whether use contradiction probing when line deduction stalls (default: False)')
     parser_g.add_argument('--show-progress', action=argparse.BooleanOptionalAction, default=False,
                           help='whether print board after each deducing step (highlight changes) (default: False)')
     parser_g.add_argument('--progress-pause', type=float, default=0.2,
@@ -1127,6 +1201,8 @@ def create_arg_parser() -> argparse.ArgumentParser:
                           help='whether print every line deducing result (default: False)')
     parser_g.add_argument('--show-guess', action=argparse.BooleanOptionalAction, default=False,
                           help='whether print every guessing step (default: False)')
+    parser_g.add_argument('--show-probe', action=argparse.BooleanOptionalAction, default=False,
+                          help='whether print every contradiction probing step (default: False)')
     parser_g.add_argument('--grid', type=int_pair, nargs='?', default=(0, 0), const=(5, 5), metavar='WIDTH[,HEIGHT]',
                           help='show major grid line when printing gram with the given size (default: 5,5)')
     parser_g.add_argument('--line-fence', type=int, default=5,
@@ -1153,10 +1229,12 @@ def create_solver(args) -> NonogramSolver:
     solver.io.line_fence = args.line_fence
     if args.mode == 'gram':
         solver.guess_enabled = args.guess
+        solver.probe_enabled = args.probe
         solver.deduce_board_visible = args.show_progress
         solver.deduce_board_pause = args.progress_pause
         solver.line_deduce_visible = args.show_deduce
         solver.guessing_visible = args.show_guess
+        solver.probing_visible = args.show_probe
         solver.io.col_fence = args.grid[0]
         solver.io.row_fence = args.grid[-1]
         solver.io.full_width_enabled = args.full_width

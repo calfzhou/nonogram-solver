@@ -1,9 +1,23 @@
 import glob
+import io
 import unittest
+from contextlib import redirect_stdout
 
 import ddt
 
 from nonogram_solver import *
+
+
+class RejectFirstGuessSolver(NonogramSolver):
+    def __init__(self):
+        super().__init__()
+        self.probe_calls = 0
+
+    def _find_contradiction_deduction(self, puzzle, board):
+        self.probe_calls += 1
+        if self.probe_calls == 2:
+            raise ParadoxError('reject first guess')
+        return None
 
 
 def deducible_grams():
@@ -27,27 +41,61 @@ class TestCase(unittest.TestCase):
         solver.verify(puzzle, board)
 
     @ddt.data(*need_guess_grams())
-    def test_guess_gram(self, gram_file_path):
+    def test_probe_gram(self, gram_file_path):
         solver = NonogramSolver()
         puzzle = solver.io.load_puzzle(gram_file_path)
 
         solver.pre_check(puzzle)
 
-        # 1) deduction only must NOT finish -- the LOUD ALERT fires here if
-        #    a solver improvement ever makes this puzzle deducible.
+        # Basic line deduction still stalls on this puzzle.
+        solver.probe_enabled = False
         solver.guess_enabled = False
         deduce_board = solver.solve(puzzle)
         self.assertFalse(
             deduce_board.finished(),
-            f'needs-guessing puzzle is now solveable by deduction only; '
+            f'puzzle is now solvable by line deduction alone; '
             f'move {gram_file_path} out of puzzles/need-guess/',
         )
 
-        # 2) deduction stalled -> guessing on the SAME solver + SAME puzzle.
-        solver.guess_enabled = True
+        # Contradiction probing must solve it without committing a guess.
+        solver.probe_enabled = True
         board = solver.solve(puzzle)
-        self.assertTrue(board.finished(), 'gram was not fully solved by guessing')
+        self.assertTrue(board.finished(), 'gram was not fully solved by contradiction deduction')
         solver.verify(puzzle, board)
+
+    def test_probe_paradox_backtracks_guess(self):
+        puzzle = NonogramPuzzle(((1,),) * 3, ((1,),) * 3, None)
+        solver = RejectFirstGuessSolver()
+        solver.guess_enabled = True
+        solver.probe_enabled = True
+
+        board = solver.solve(puzzle)
+
+        self.assertGreaterEqual(solver.probe_calls, 2)
+        self.assertTrue(board.finished(), 'gram was not fully solved after probe backtracking')
+        solver.verify(puzzle, board)
+
+    def test_show_probe(self):
+        puzzle = NonogramPuzzle(((1,),), ((1,),), None)
+        solver = NonogramSolver()
+        solver.probing_visible = True
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            forced_cell = solver._find_contradiction_deduction(puzzle, Board(1, 1))
+
+        self.assertEqual((Coord(0, 0), CellType.BOX), forced_cell)
+        self.assertEqual(
+            [
+                '[Probe] assume cell [1, 1] is BOX',
+                '[Probe] no contradiction found',
+                '[Probe] assume cell [1, 1] is SPACE',
+                '[Probe paradox] paradox in ROW 1: boxes (0,) do not match clues (1,)',
+                '[Probe deduction] cell [1, 1] must be BOX',
+                '',
+            ],
+            output.getvalue().splitlines(),
+        )
 
 
 if __name__ == '__main__':
