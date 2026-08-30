@@ -245,10 +245,26 @@ real_2:
   length: 30
   clues: [1, 2, 2, 1, 1, 1, 1]
   origin: '.....|o....|xxo..|xxoxo|xxxxo|xxxx.'
+  fast_result: '.....|o....|xxo..|xxoxo|xxxxo|xxxx.'
   result: '.....|o....|xxo.x|xxoxo|xxxxo|xxxx.'
+
+exact_forced_space_1:
+  length: 7
+  clues: [1, 2]
+  origin: '...ox|..'
+  fast_result: '...ox|..'
+  result: '.x.ox|..'
+
+exact_forced_box_1:
+  length: 14
+  clues: [2, 3, 1, 1]
+  origin: '..x.o|..o..|o.x.'
+  fast_result: '..x.o|..o.x|oxx.'
+  result: '..xoo|..o.x|oxx.'
 
 exact_finish_paradox:
   length: 4
   clues: [2]
   origin: 'oxo.'
+  fast_result: 'oxox'
   result:

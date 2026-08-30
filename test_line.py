@@ -16,6 +16,23 @@ class TestCase(unittest.TestCase):
 
         solver = NonogramSolver()
         solver.io.line_fence = 5
+
+        if 'fast_result' in case_info:
+            fast_result = case_info['fast_result']
+            fast_line = solver.io.parse_line(origin, length)
+            try:
+                solver.solve_line(clues, fast_line, exact=False)
+            except ParadoxError:
+                self.assertIsNone(fast_result, 'unexpected fast-stage paradox occurs')
+            else:
+                self.assertIsNotNone(fast_result, 'fast stage did not find paradox')
+                expected = solver.io.parse_line(fast_result, length)
+                self.assertSequenceEqual(
+                    solver.io.format_line(fast_line),
+                    solver.io.format_line(expected),
+                    'not correctly solved by fast stage',
+                )
+
         line = solver.io.parse_line(origin, length)
 
         try:
