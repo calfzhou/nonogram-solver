@@ -49,6 +49,20 @@ class TestCase(unittest.TestCase):
         self.assertTrue(board.finished(), 'gram was not fully solved by guessing')
         solver.verify(puzzle, board)
 
+    def test_guess_rejects_invalid_finished_board(self):
+        puzzle = NonogramPuzzle(
+            ((0,), (2,), (1, 1)),
+            ((1,), (1,), (1,), (1,)),
+            None,
+        )
+        solver = NonogramSolver()
+        solver.guess_enabled = True
+
+        board = solver.solve(puzzle)
+
+        self.assertTrue(board.finished(), 'gram was not fully solved by guessing')
+        solver.verify(puzzle, board)
+
 
 if __name__ == '__main__':
     unittest.main()

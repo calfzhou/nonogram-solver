@@ -82,7 +82,7 @@ uncertain_splitting_3:
   length: 25
   clues: [1, 2, 1, 1, 3, 2]
   origin: '...o.|o.xxx|.x...|.....|.....'
-  result: '...ox|o.xxx|.x...|.....|.....'
+  result: '.x.ox|o.xxx|.x...|.....|.....'
 
 uncertain_splitting_4:
   length: 25
@@ -149,7 +149,7 @@ uncertain_clues_8:
   length: 30
   clues: [2, 2, 2, 1]
   origin: '..........|.......oxo|..........'
-  result: '..........|.....xooxo|..........'
+  result: '..........|.....xooxo|.x........'
 
 uncertain_clues_made_space_1:
   length: 15
@@ -240,3 +240,15 @@ real_1:
   clues: [4, 2, 4, 2, 4]
   origin: '.....|ooxxx|x..x.|.ooxx|xx..x|oooox'
   result: '...o.|ooxxx|x..xo|oooxx|xxoox|oooox'
+
+real_2:
+  length: 30
+  clues: [1, 2, 2, 1, 1, 1, 1]
+  origin: '.....|o....|xxo..|xxoxo|xxxxo|xxxx.'
+  result: '.....|o....|xxo.x|xxoxo|xxxxo|xxxx.'
+
+exact_finish_paradox:
+  length: 4
+  clues: [2]
+  origin: 'oxo.'
+  result:

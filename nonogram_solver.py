@@ -4,6 +4,7 @@ import argparse
 import collections
 import copy
 import enum
+import functools
 import itertools
 import sys
 import time
@@ -463,9 +464,11 @@ class LineSolver:
     def changes(self) -> typing.Set[int]:
         return self._changes
 
-    def solve(self):
+    def solve(self, exact=True):
         # Check if already or almost finished.
         if self._check_finish():
+            if exact:
+                self._mark_exact()
             return
 
         # Trim finished head and tail.
@@ -483,6 +486,8 @@ class LineSolver:
         if self._remain_clue.length == 0:
             for i in self._remain_cell.iter():
                 self._mark_cell(i, CellType.SPACE)
+            if exact:
+                self._mark_exact()
             return
 
         # Build clues' block section.
@@ -504,6 +509,8 @@ class LineSolver:
         # Finalize.
         self._mark_boxes()
         self._mark_spaces()
+        if exact:
+            self._mark_exact()
 
     def _mark_cell(self, index: int, value: CellType):
         if index < 0 or index >= self._width:
@@ -788,6 +795,74 @@ class LineSolver:
         for i in remain.iter():
             self._mark_cell(i, CellType.SPACE)
 
+    def _mark_exact(self):
+        clues = tuple(filter(None, self._clues))
+        box_prefix = [0]
+        space_prefix = [0]
+        for value in self._content:
+            box_prefix.append(box_prefix[-1] + (value == CellType.BOX))
+            space_prefix.append(space_prefix[-1] + (value == CellType.SPACE))
+
+        def contains(prefix, begin, end):
+            return prefix[end] > prefix[begin]
+
+        min_widths = [0] * (len(clues) + 1)
+        for i in range(len(clues) - 1, -1, -1):
+            separator = 1 if i + 1 < len(clues) else 0
+            min_widths[i] = clues[i] + separator + min_widths[i + 1]
+
+        @functools.lru_cache(maxsize=None)
+        def get_box_masks(clue_index, begin):
+            if clue_index == len(clues):
+                return None if contains(box_prefix, begin, self._width) else (0, 0)
+
+            clue = clues[clue_index]
+            possible_boxes = 0
+            required_boxes = None
+            max_start = self._width - min_widths[clue_index]
+            for start in range(begin, max_start + 1):
+                if contains(box_prefix, begin, start):
+                    break
+
+                end = start + clue
+                if contains(space_prefix, start, end):
+                    continue
+
+                next_begin = end
+                if clue_index + 1 < len(clues):
+                    if self._content[end] == CellType.BOX:
+                        continue
+                    next_begin += 1
+
+                remaining = get_box_masks(clue_index + 1, next_begin)
+                if remaining is None:
+                    continue
+
+                block_mask = ((1 << clue) - 1) << start
+                placement_possible = block_mask | remaining[0]
+                placement_required = block_mask | remaining[1]
+                possible_boxes |= placement_possible
+                required_boxes = (placement_required if required_boxes is None
+                                  else required_boxes & placement_required)
+
+            if required_boxes is None:
+                return None
+
+            return possible_boxes, required_boxes
+
+        box_masks = get_box_masks(0, 0)
+        if box_masks is None:
+            raise ParadoxError('no valid clue placements')
+
+        possible_boxes, required_boxes = box_masks
+        for i, value in enumerate(self._content):
+            if value is not None:
+                continue
+            if required_boxes & (1 << i):
+                self._mark_cell(i, CellType.BOX)
+            elif not possible_boxes & (1 << i):
+                self._mark_cell(i, CellType.SPACE)
+
 
 class NonogramIO:
     class SymbolColl(typing.NamedTuple):
@@ -954,9 +1029,18 @@ class NonogramSolver:
         guesses: typing.List[GuessData] = []
         guessing = False
 
-        while not board.finished():
+        while True:
             try:
+                if board.finished():
+                    self._propagate(puzzle, board, self._all_lines(board), exact=True)
+                    break
+
                 self._propagate(puzzle, board, lines)
+                if not board.finished():
+                    exact_lines = self._all_lines(board)
+                    if self._propagate(puzzle, board, exact_lines, exact=True, stop_after_change=True):
+                        lines = exact_lines
+                        continue
             except ParadoxError as e:
                 if guesses:
                     guess: GuessData = guesses.pop()
@@ -971,7 +1055,10 @@ class NonogramSolver:
                     raise
                 continue
 
-            if board.finished() or not self.guess_enabled:
+            if board.finished():
+                continue
+
+            if not self.guess_enabled:
                 break
 
             if not guessing:
@@ -1010,16 +1097,18 @@ class NonogramSolver:
         ))
 
     def _propagate(self, puzzle: NonogramPuzzle, board: Board, lines: collections.OrderedDict,
-                   visible: bool=True):
+                   visible: bool=True, exact: bool=False, stop_after_change: bool=False) -> bool:
+        changed = False
         while lines:
             line, _ = lines.popitem(last=False)
             clues = puzzle.get_line_clues(line)
             content = board.get_line_content(line)
             origin = self.io.format_line(content)
-            changes = self.solve_line(clues, content, line)
+            changes = self.solve_line(clues, content, line, exact=exact)
             if not changes:
                 continue
 
+            changed = True
             if visible and self.line_deduce_visible:
                 print(f'solving {line}: {clues}')
                 print(f'origin: {origin}')
@@ -1041,6 +1130,11 @@ class NonogramSolver:
                 print()
                 time.sleep(self.deduce_board_pause)
 
+            if stop_after_change:
+                break
+
+        return changed
+
     def _choose_cell(self, board: Board):
         for row in range(board.height):
             for col in range(board.width):
@@ -1048,10 +1142,11 @@ class NonogramSolver:
                 if board[coord] is None:
                     return coord
 
-    def solve_line(self, clues: typing.Tuple[int], content: typing.List[CellType], line: Line=None) -> typing.Set[int]:
+    def solve_line(self, clues: typing.Tuple[int], content: typing.List[CellType], line: Line=None,
+                   exact: bool=True) -> typing.Set[int]:
         line_solver = LineSolver(clues, content)
         try:
-            line_solver.solve()
+            line_solver.solve(exact=exact)
         except ParadoxError as e:
             if line:
                 raise ParadoxError(f'paradox in {line}: {e}') from e
