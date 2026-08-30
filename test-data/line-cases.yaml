@@ -82,6 +82,7 @@ uncertain_splitting_3:
   length: 25
   clues: [1, 2, 1, 1, 3, 2]
   origin: '...o.|o.xxx|.x...|.....|.....'
+  fast_result: '...ox|o.xxx|.x...|.....|.....'
   result: '.x.ox|o.xxx|.x...|.....|.....'
 
 uncertain_splitting_4:
@@ -149,6 +150,7 @@ uncertain_clues_8:
   length: 30
   clues: [2, 2, 2, 1]
   origin: '..........|.......oxo|..........'
+  fast_result: '..........|.....xooxo|..........'
   result: '..........|.....xooxo|.x........'
 
 uncertain_clues_made_space_1:
