@@ -243,7 +243,7 @@ real_1:
   origin: '.....|ooxxx|x..x.|.ooxx|xx..x|oooox'
   result: '...o.|ooxxx|x..xo|oooxx|xxoox|oooox'
 
-real_2:
+real_2: # 30x30-drummer.txt column 27
   length: 30
   clues: [1, 2, 2, 1, 1, 1, 1]
   origin: '.....|o....|xxo..|xxoxo|xxxxo|xxxx.'
