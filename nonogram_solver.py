@@ -1231,12 +1231,14 @@ def create_arg_parser() -> argparse.ArgumentParser:
 
     parser_l = subparsers.add_parser('line', help='single line mode')
     parser_l.add_argument('length', type=int,
-                         help='length of line')
+                          help='length of line')
     parser_l.add_argument('clues', type=int, nargs='+', metavar='clue',
                           help='clue numbers')
     parser_l.add_argument('--content', default='',
-                         help='content of the line, `o` or `@` for box, `x` or `*` for space,'
-                         ' `|` for border (optional), other character for unknown (case insensitive)')
+                          help='content of the line, `o` or `@` for box, `x` or `*` for space,'
+                          ' `|` for border (optional), other character for unknown (case insensitive)')
+    parser_l.add_argument('--exact', action=argparse.BooleanOptionalAction, default=True,
+                          help='whether use exact clue-placement deduction (default: True)')
     parser_l.add_argument('--line-fence', type=int, default=5,
                           help='if greater than 0, print fence when printing single line (default: 5)')
 
@@ -1278,7 +1280,7 @@ def main():
     elif args.mode == 'line':
         content = solver.io.parse_line(args.content, args.length)
         origin = solver.io.format_line(content)
-        solver.solve_line(args.clues, content)
+        solver.solve_line(args.clues, content, exact=args.exact)
         print(f'solving line: {args.clues}')
         print(f'origin: {origin}')
         print(f'result: {solver.io.format_line(content)}')

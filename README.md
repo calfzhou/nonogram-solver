@@ -57,6 +57,7 @@ options:
 ```shell-session
 $ ./nonogram_solver.py line -h
 usage: nonogram_solver.py line [-h] [--content CONTENT]
+                               [--exact | --no-exact]
                                [--line-fence LINE_FENCE]
                                length clue [clue ...]
 
@@ -69,6 +70,8 @@ optional arguments:
   --content CONTENT     content of the line, `o` or `@` for box, `x` or `*`
                         for space, `|` for border (optional), other character
                         for unknown (case insensitive)
+  --exact, --no-exact   whether use exact clue-placement deduction (default:
+                        True)
   --line-fence LINE_FENCE
                         if greater than 0, print fence when printing single
                         line (default: 5)
