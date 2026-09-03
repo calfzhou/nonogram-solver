@@ -21,6 +21,12 @@ class CellType(enum.Enum):
         return self.name
 
 
+Cell = typing.Optional[CellType]
+Clues = typing.Tuple[int, ...]
+ClueValues = typing.Sequence[int]
+LineContent = typing.List[Cell]
+
+
 class LineKind(enum.Enum):
     ROW = enum.auto()
     COL = enum.auto()
@@ -57,7 +63,7 @@ class Board:
     def __init__(self, height: int, width: int):
         self._height = height
         self._width = width
-        self._cells = [[None] * width for r in range(height)]
+        self._cells: typing.List[LineContent] = [[None] * width for _ in range(height)]
         self._confirmed = 0
 
     @property
@@ -68,10 +74,10 @@ class Board:
     def width(self) -> int:
         return self._width
 
-    def __getitem__(self, coord: Coord) -> CellType:
+    def __getitem__(self, coord: Coord) -> Cell:
         return self._cells[coord.row][coord.col]
 
-    def __setitem__(self, coord: Coord, value: CellType):
+    def __setitem__(self, coord: Coord, value: Cell):
         curr = self._cells[coord.row][coord.col]
         if curr == value:
             return
@@ -85,14 +91,14 @@ class Board:
     def finished(self) -> bool:
         return self._confirmed == self._height * self._width
 
-    def get_line_content(self, line: Line) -> typing.List[CellType]:
+    def get_line_content(self, line: Line) -> LineContent:
         length = self._width if (line.kind == LineKind.ROW) else self._height
         return [self[line.get_coord(i)] for i in range(length)]
 
 
 class NonogramPuzzle(typing.NamedTuple):
-    row_clues: typing.Tuple[typing.Tuple[int]]
-    col_clues: typing.Tuple[typing.Tuple[int]]
+    row_clues: typing.Tuple[Clues, ...]
+    col_clues: typing.Tuple[Clues, ...]
     board: typing.Optional[Board]
 
     @property
@@ -103,7 +109,7 @@ class NonogramPuzzle(typing.NamedTuple):
     def width(self) -> int:
         return len(self.col_clues)
 
-    def get_line_clues(self, line: Line) -> typing.Tuple[int]:
+    def get_line_clues(self, line: Line) -> Clues:
         if line.kind == LineKind.ROW:
             return self.row_clues[line.n]
         elif line.kind == LineKind.COL:
@@ -138,15 +144,17 @@ class Block(typing.NamedTuple):
         return f'[{self.begin + 1}-{self.end}]'
 
     @classmethod
-    def build(cls, begin: int, end: typing.Optional[int] = None, min_length=1):
+    def build(cls, begin: int, end: typing.Optional[int] = None,
+              min_length=1) -> typing.Optional['Block']:
         end = (begin + 1) if (end is None) else end
         return cls(begin, end) if (end - begin >= min_length) else None
 
 
 class BlockSection:
-    ignore_attrs = {'_prev', '_next'}
+    """A sorted union of disjoint half-open ranges."""
 
     def __init__(self, begin: int, end: typing.Optional[int] = None, min_length=1):
+        # Short fragments cannot fit the clue represented by this section.
         self._blocks: typing.List[Block] = []
         self._min_length = min_length
 
@@ -159,10 +167,7 @@ class BlockSection:
         result = cls.__new__(cls)
         memo[id(self)] = result
         for k, v in self.__dict__.items():
-            if k in cls.ignore_attrs:
-                setattr(result, k, None)
-            else:
-                setattr(result, k, copy.deepcopy(v, memo))
+            setattr(result, k, copy.deepcopy(v, memo))
 
         return result
 
@@ -176,6 +181,7 @@ class BlockSection:
 
     @property
     def length(self) -> int:
+        # This is the outer span; gaps still count. Use cell_count for cardinality.
         return (self.end - self.begin) if self._blocks else 0
 
     @property
@@ -227,6 +233,7 @@ class BlockSection:
             elif other_block.end <= self_block.begin:
                 other_index += 1
             else:
+                # Discard fragments too short to hold the represented clue.
                 replacements = [
                     Block.build(self_block.begin, other_block.begin, self._min_length),
                     Block.build(other_block.end, self_block.end, self._min_length),
@@ -261,6 +268,7 @@ class BlockSection:
                 intersect = Block.build(max(self_block.begin, other_block.begin),
                                 min(self_block.end, other_block.end),
                                 self._min_length)
+                # Keep the unmatched tail for intersections with later ranges.
                 tail = Block.build(other_block.end, self_block.end, self._min_length)
                 self._blocks[self_index:self_index + 1] = filter(None, (intersect, tail))
                 if intersect:
@@ -281,13 +289,16 @@ class Ternary(enum.Enum):
 
 
 class ClueExtra:
+    """Placement constraints for one clue in an ordered clue sequence."""
+
     def __init__(self, index: int, value: int, begin: int, end: int):
         self._index = index
         self._value = value
+        # Candidates are cells the clue may occupy, not possible start indices.
         self._candidates = BlockSection(begin, end, min_length=value)
-        self._boxes: Block = None
-        self._prev: ClueExtra = None
-        self._next: ClueExtra = None
+        self._boxes: typing.Optional[Block] = None
+        self._prev: typing.Optional[ClueExtra] = None
+        self._next: typing.Optional[ClueExtra] = None
 
         self._check_box()
 
@@ -306,24 +317,24 @@ class ClueExtra:
         return self._candidates
 
     @property
-    def boxes(self) -> Block:
+    def boxes(self) -> typing.Optional[Block]:
         return self._boxes
 
-    def get_prev(self) -> 'ClueExtra':
+    def get_prev(self) -> typing.Optional['ClueExtra']:
         return self._prev
 
-    def get_next(self) -> 'ClueExtra':
+    def get_next(self) -> typing.Optional['ClueExtra']:
         return self._next
 
     def finished(self) -> bool:
-        return self._boxes and self._boxes.length == self._value
+        return bool(self._boxes and self._boxes.length == self._value)
 
     def __repr__(self):
         return f'#{self._index + 1} ({self._value}) {self._boxes}'
 
     @classmethod
     def chain(cls, clues: typing.Iterable):
-        prev: ClueExtra = None
+        prev: typing.Optional[ClueExtra] = None
         for curr in clues:
             if prev:
                 prev._set_next(curr)
@@ -340,6 +351,7 @@ class ClueExtra:
             self._set_next(None)
 
     def confirm_boxes(self, boxes: Block):
+        # Boxes assigned to one clue form a single run, so merge their hull.
         if self._boxes is None:
             self._boxes = boxes
         elif self._boxes.begin != boxes.begin or self._boxes.end != boxes.end:
@@ -374,6 +386,7 @@ class ClueExtra:
             min(self._boxes.begin, boxes.begin),
             max(self._boxes.end, boxes.end)
         )
+        # Touching evidence must belong to this same clue.
         if merged.length <= self._boxes.length + boxes.length:
             return Ternary.EXCLUSIVE
 
@@ -382,20 +395,22 @@ class ClueExtra:
 
         return Ternary.YES
 
-    def _set_prev(self, prev: BlockSection):
+    def _set_prev(self, prev: typing.Optional['ClueExtra']):
         self._prev = prev
         if self._prev:
             self._push_prev()
 
-    def _set_next(self, next: BlockSection):
-        self._next = next
+    def _set_next(self, next_clue: typing.Optional['ClueExtra']):
+        self._next = next_clue
         if self._next:
             self._push_next()
 
     def _push_prev(self):
+        # Leave one separator before this clue's latest possible start.
         self._prev.remove_tail_candidates(begin=self.candidates.end - self._value - 1)
 
     def _push_next(self):
+        # Leave one separator after this clue's earliest possible end.
         self._next.remove_head_candidates(end=self.candidates.begin + self._value + 1)
 
     def remove_head_candidates(self, end: int):
@@ -421,6 +436,7 @@ class ClueExtra:
             self._on_candidates_removed(begin, end)
 
     def _on_candidates_removed(self, old_begin: int, old_end: int):
+        # Only changed outer bounds constrain neighboring clues.
         if self._prev and self.candidates.end < old_end:
             self._push_prev()
 
@@ -430,11 +446,13 @@ class ClueExtra:
         self._check_box()
 
     def _on_boxes_extended(self):
+        # Every placement must cover the confirmed box hull.
         padding = self._value - self._boxes.length
         possible = Block(self._boxes.begin - padding, self._boxes.end + padding)
         self.limit_candidates(possible)
 
     def _check_box(self):
+        # The overlap of the earliest and latest placements is forced.
         padding = self._candidates.length - self._value
         if padding >= self._value:
             return
@@ -449,29 +467,29 @@ class BoxBlockAndClues(typing.NamedTuple):
 
 
 class LineSolver:
-    def __init__(self, clues: typing.Tuple[int], content: typing.List[CellType]):
-        self._clues = clues
+    def __init__(self, clues: ClueValues, content: LineContent):
+        self._clues = tuple(clues)
         self._content = content
         self._width = len(content)
 
         self._remain_cell = Block(0, self._width)
         self._remain_clue = Block(0, len(self._clues))
-        self._clues_ex = None
+        self._clues_ex: typing.Optional[typing.List[ClueExtra]] = None
 
-        self._changes = set()
+        self._changes: typing.Set[int] = set()
 
     @property
     def changes(self) -> typing.Set[int]:
         return self._changes
 
-    def solve(self, exact=True):
-        # Check if already or almost finished.
+    def solve(self, exact: bool=True):
+        # Fill directly when either the box or space quota is exhausted.
         if self._check_finish():
             if exact:
                 self._mark_exact()
             return
 
-        # Trim finished head and tail.
+        # Remove complete edge clues; reverse trim stops at begin - 1.
         begin, clue_begin = self._trim_finished(
             self._remain_cell.begin, self._remain_cell.end, self._remain_clue.begin, self._remain_clue.end, step=1)
         end, clue_end = self._trim_finished(
@@ -482,7 +500,7 @@ class LineSolver:
         self._remain_cell = Block(begin, end)
         self._remain_clue = Block(clue_begin, clue_end)
 
-        # Check if all clues finished (remaining spaces only).
+        # No clues remain, so the unresolved middle is empty.
         if self._remain_clue.length == 0:
             for i in self._remain_cell.iter():
                 self._mark_cell(i, CellType.SPACE)
@@ -490,23 +508,23 @@ class LineSolver:
                 self._mark_exact()
             return
 
-        # Build clues' block section.
+        # Link per-clue candidate sections so ordering bounds propagate.
         self._clues_ex = [ClueExtra(j, self._clues[j], begin, end) for j in self._remain_clue.iter()]
         ClueExtra.chain(self._clues_ex)
 
-        # Process known spaces.
+        # Known spaces split each clue's feasible ranges.
         for i in self._remain_cell.iter():
             if self._content[i] == CellType.SPACE:
                 for clue in self._clues_ex:
                     clue.remove_candidates(i)
 
-        # Process known boxes.
+        # Repeat because assigning one run can narrow the others.
         known_boxes = self._get_known_boxes()
-        finished = False
-        while known_boxes and not finished:
-            finished = not self._handle_known_boxes(known_boxes)
+        updated = True
+        while known_boxes and updated:
+            updated = self._handle_known_boxes(known_boxes)
 
-        # Finalize.
+        # Materialize deductions from the reduced clue constraints.
         self._mark_boxes()
         self._mark_spaces()
         if exact:
@@ -534,15 +552,15 @@ class LineSolver:
             elif value == CellType.SPACE:
                 space_count += 1
 
-        # Check if all cells finished.
+        # Assignment is complete; exact mode validates clue layout afterward.
         if box_count + space_count == self._width:
             return True
 
         if box_count == clue_sum:
-            # All boxes finished (or empty line), need fill in spaces.
+            # The box quota is exhausted.
             value = CellType.SPACE
         elif space_count == self._width - clue_sum:
-            # All spaces finished (or full line), need fill in boxes.
+            # The space quota is exhausted.
             value = CellType.BOX
         else:
             return False
@@ -554,6 +572,7 @@ class LineSolver:
         return True
 
     def _trim_finished(self, begin: int, end: int, clue_begin: int, clue_end: int, step: int):
+        """Trim assigned edge cells and return the next cell and clue indices."""
         while begin != end:
             if self._content[begin] is None:
                 break
@@ -575,6 +594,7 @@ class LineSolver:
         return begin, clue_begin
 
     def _is_space(self, index: int) -> bool:
+        # Candidate-free unknown cells act as virtual spaces.
         if index < self._remain_cell.begin or index >= self._remain_cell.end:
             return True
 
@@ -605,7 +625,7 @@ class LineSolver:
         for clue in self._clues_ex:
             clue.remove_candidates(index)
 
-    def _get_known_boxes(self):
+    def _get_known_boxes(self) -> typing.List[BoxBlockAndClues]:
         known_boxes = []
         index = self._remain_cell.begin
         while index < self._remain_cell.end:
@@ -629,9 +649,11 @@ class LineSolver:
 
         return not any(self._is_space(i) for i in range(block1.end, block2.begin))
 
-    def _handle_known_boxes(self, known_boxes) -> bool:
+    def _handle_known_boxes(self, known_boxes: typing.List[BoxBlockAndClues]) -> bool:
+        """Narrow box-run assignments and clue candidates by one pass."""
         updated = False
         index = 0
+        # First narrow each run to clues that can contain it.
         while index < len(known_boxes):
             block, clues = known_boxes[index]
             candidate_clues = list(clues)
@@ -661,6 +683,7 @@ class LineSolver:
                     # (it is never placed in a candidate list).
                     temp_clue = ClueExtra(-1, clue_min, boundary.begin, boundary.end)
                     temp_clue.confirm_boxes(block)
+                    assert temp_clue.boxes is not None
                     if temp_clue.boxes.length > block.length:
                         for i in temp_clue.boxes.iter():
                             self._mark_cell(i, CellType.BOX)
@@ -691,7 +714,7 @@ class LineSolver:
 
             index += 1
 
-        # Push next known boxes' clues.
+        # Later box runs cannot use clues already passed by earlier runs.
         for index in range(len(known_boxes) - 1):
             block, clues = known_boxes[index]
             next_block, next_clues = known_boxes[index + 1]
@@ -707,7 +730,7 @@ class LineSolver:
             if not next_clues:
                 raise ParadoxError(f'boxes {next_block} cannot be matched to any clue')
 
-        # Push prev known boxes' clues.
+        # Apply the same ordering constraint from right to left.
         for index in range(len(known_boxes) - 1, 0, -1):
             block, clues = known_boxes[index]
             prev_block, prev_clues = known_boxes[index - 1]
@@ -727,28 +750,26 @@ class LineSolver:
         while index < len(known_boxes):
             block, clues = known_boxes[index]
 
-            # Check confirmed boxes.
+            # A sole remaining clue assignment is confirmed.
             if len(clues) == 1:
                 clues[0].confirm_boxes(block)
                 del known_boxes[index]
                 updated = True
                 continue
 
-            # Shrink the first clue's candidates range.
-            # This will automatically push prev clues' candidates range.
+            # Bound the first clue's candidate envelope from the run's start.
             first_clue = clues[0]
             if first_clue.candidates.end > block.begin + first_clue.value:
                 first_clue.remove_tail_candidates(block.begin + first_clue.value)
                 updated = True
 
-            # Shrink the last clue's candidates range.
-            # This will automatically push next clues' candidates range.
+            # Bound the last clue's candidate envelope from the run's end.
             last_clue = clues[-1]
             if last_clue.candidates.begin < block.end - last_clue.value:
                 last_clue.remove_head_candidates(block.end - last_clue.value)
                 updated = True
 
-            # Check special space.
+            # At an envelope edge, extending this run can invalidate every clue choice.
             if block.begin == clues[-1].candidates.begin and block.length < clues[-1].value:
                 if all(block.length == c.value for c in clues[:-1]) and not self._is_space(block.begin - 1):
                     self._set_space(block.begin - 1)
@@ -760,7 +781,7 @@ class LineSolver:
 
             index += 1
 
-        # Check force splitting.
+        # Split adjacent runs when no shared clue can span both.
         for index in range(len(known_boxes) - 1):
             block, clues = known_boxes[index]
             next_block, next_clues = known_boxes[index + 1]
@@ -797,6 +818,7 @@ class LineSolver:
 
     def _mark_exact(self):
         clues = tuple(filter(None, self._clues))
+        # Prefix counts make known-cell range checks constant-time.
         box_prefix = [0]
         space_prefix = [0]
         for value in self._content:
@@ -807,20 +829,23 @@ class LineSolver:
             return prefix[end] > prefix[begin]
 
         min_widths = [0] * (len(clues) + 1)
+        # Minimum suffix widths include mandatory one-cell separators.
         for i in range(len(clues) - 1, -1, -1):
             separator = 1 if i + 1 < len(clues) else 0
             min_widths[i] = clues[i] + separator + min_widths[i + 1]
 
         @functools.lru_cache(maxsize=None)
-        def get_box_masks(clue_index, begin):
+        def get_box_masks(clue_index: int, begin: int) -> typing.Optional[typing.Tuple[int, int]]:
+            # Return cells boxed in any placement and in every placement.
             if clue_index == len(clues):
                 return None if contains(box_prefix, begin, self._width) else (0, 0)
 
             clue = clues[clue_index]
             possible_boxes = 0
-            required_boxes = None
+            required_boxes: typing.Optional[int] = None
             max_start = self._width - min_widths[clue_index]
             for start in range(begin, max_start + 1):
+                # A later start would also skip this known box.
                 if contains(box_prefix, begin, start):
                     break
 
@@ -841,6 +866,7 @@ class LineSolver:
                 block_mask = ((1 << clue) - 1) << start
                 placement_possible = block_mask | remaining[0]
                 placement_required = block_mask | remaining[1]
+                # OR means "boxed somewhere"; AND means "boxed everywhere".
                 possible_boxes |= placement_possible
                 required_boxes = (placement_required if required_boxes is None
                                   else required_boxes & placement_required)
@@ -884,7 +910,7 @@ class NonogramIO:
         self.box_symbols = { 'o', self.symbols.box, self.full_width_symbols.box }
         self.space_symbols = { 'x', self.symbols.space, self.full_width_symbols.space }
 
-    def format_line(self, content: typing.List[CellType]) -> str:
+    def format_line(self, content: LineContent) -> str:
         parts = []
         for col, value in enumerate(content):
             if self.line_fence > 0 and col > 0 and col % self.line_fence == 0:
@@ -947,7 +973,7 @@ class NonogramIO:
 
         return '\n'.join(lines)
 
-    def parse_line(self, text: str, length: int) -> typing.List[CellType]:
+    def parse_line(self, text: str, length: int) -> LineContent:
         content = []
         for c in text:
             c = c.lower()
@@ -1032,13 +1058,16 @@ class NonogramSolver:
         while True:
             try:
                 if board.finished():
+                    # A filled guessed branch still needs exact clue validation.
                     self._propagate(puzzle, board, self._all_lines(board), exact=True)
                     break
 
                 self._propagate(puzzle, board, lines)
                 if not board.finished():
+                    # Use exact placement only after fast propagation stalls.
                     exact_lines = self._all_lines(board)
                     if self._propagate(puzzle, board, exact_lines, exact=True, stop_after_change=True):
+                        # Resume fast propagation from the exact deduction.
                         lines = exact_lines
                         continue
             except ParadoxError as e:
@@ -1098,6 +1127,7 @@ class NonogramSolver:
 
     def _propagate(self, puzzle: NonogramPuzzle, board: Board, lines: collections.OrderedDict,
                    visible: bool=True, exact: bool=False, stop_after_change: bool=False) -> bool:
+        """Process queued lines and report whether any cell changed."""
         changed = False
         while lines:
             line, _ = lines.popitem(last=False)
@@ -1142,7 +1172,7 @@ class NonogramSolver:
                 if board[coord] is None:
                     return coord
 
-    def solve_line(self, clues: typing.Tuple[int], content: typing.List[CellType], line: Line=None,
+    def solve_line(self, clues: ClueValues, content: LineContent, line: Line=None,
                    exact: bool=True) -> typing.Set[int]:
         line_solver = LineSolver(clues, content)
         try:
